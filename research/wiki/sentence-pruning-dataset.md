@@ -2,21 +2,22 @@
 
 ## Summary
 
-The [[Sentence Pruning Dataset]] is the Data repo's core artifact: examples where a model-generated response is shortened by removing redundant reasoning units while preserving correctness, completeness, and coherence. It is meant to train models to produce efficient reasoning rather than merely shorter answers.
+The [[Sentence Pruning Dataset]] is the Data repo's core artifact: compact pruning-transition examples that teach a model to continue from a useful reasoning prefix directly to the next useful step after a skipped span. It is meant to train efficient local continuation behavior, not to store full verbose-output-to-short-output rewrite pairs.
 
 ## Details
 
-The project plan defines a loop: generate an answer, segment it into sentences or reasoning steps, decide which units can be removed, verify the pruned answer, and save only high-quality examples. Later iterations may feed the pruned sequence back into the model and prune new continuations.
+The project plan defines a loop: generate reasoning with generator `G`, segment it into sentences or reasoning steps, ask decision model `D` for the first safely removable contiguous span, save `input_x = question + useful prefix` and `target_y = next useful step after the skipped span`, then feed the pruned context back into `G` for deeper pruning transitions.
 
-The dataset should preserve provenance:
+Accepted JSONL rows should stay compact:
 
-- original prompt
-- original response
-- pruned response
-- removed unit identifiers
-- decision rationale
-- verification outcome
-- pruning depth or iteration metadata
+- `id`
+- `question`
+- `input_x`
+- `target_y`
+- `depth`
+- `decision` with `config` and `commit`/revision reference
+
+Heavy provenance should live at the dataset/manifest or private audit level rather than inside every accepted training row. This includes source dataset revision, generator model revision, decision model and prompt/config revision, prompt text or path, pruning config, run counts, and rejected/audit details.
 
 Because the data is expensive and sensitive, the repo should prefer [[Quality Over Quantity]] and use eval-driven acceptance rather than maximizing volume.
 
@@ -30,4 +31,5 @@ Because the data is expensive and sensitive, the repo should prefer [[Quality Ov
 ## Sources
 
 - `/home/avreymi/code/sentence-pruning/sentence-pruning-evaluate/docs/plan.md` sections 1, 4.1-4.3, 6.
+- `/home/avreymi/code/reasoning-pruning/reasoning-pruning-data-gen/docs/plan.md` JSON Schema and reasoning-pruning-data-gen sections.
 - `raw/INDEX.md` project implication.

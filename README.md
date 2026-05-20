@@ -1,6 +1,6 @@
-# Sentence Pruning Data
+# Reasoning Pruning Data Gen
 
-Config-driven runner for creating sentence-pruning examples. The dataset trains the local transition `question + useful reasoning prefix -> next useful sentence after a skipped span`. Runs require real LiteLLM-backed model calls.
+Config-driven runner for creating pruning-transition (PT) examples. The dataset trains the local transition `question + useful reasoning prefix -> next useful step after pruning`. Runs require real LiteLLM-backed model calls.
 
 ## Quickstart
 
@@ -41,7 +41,7 @@ uv run python scripts/create_pruning_dataset.py --config config/default.toml
 uv run --extra hf python scripts/create_pruning_dataset.py --config config/svamp.toml
 ```
 
-Edit source, output paths, provider/model/base URL/temperature, quality gates, and prompts in TOML config files. Accepted, rejected, and manifest files are written temporarily under `outputs/datasets/`; source samples are cached under `outputs/sources/`. Final generated datasets belong in private Hugging Face dataset repos checked out under `../sentence-pruning-datasets`, while private model/checkpoint repos belong under `../sentence-pruning-checkpoints`. Secrets stay in environment variables or `.env`; the runner loads `.env` without printing values.
+Edit source, output paths, provider/model/base URL/temperature, quality gates, and prompts in TOML config files. Accepted, rejected, and manifest files are written temporarily under `outputs/datasets/`; source samples are cached under `outputs/sources/`. Final generated datasets belong in private Hugging Face dataset repos checked out under `../reasoning-pruning-datasets`, while private model/checkpoint repos belong under `../reasoning-pruning-models`. Secrets stay in environment variables or `.env`; the runner loads `.env` without printing values.
 
 ## Optional Hugging Face source
 

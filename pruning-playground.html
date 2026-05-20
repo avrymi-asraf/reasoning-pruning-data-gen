@@ -1459,16 +1459,11 @@ function renderRecords(records, total, page) {
       <div class="record-id">${escapeHtml(rec.id ?? '—')}</div>
       <div class="record-meta">
         <span>depth: ${rec.depth ?? '—'}</span>
-        <span>source: ${rec.source ?? '—'}</span>
-        <span>status: ${rec.quality_status ?? '—'}</span>
+        <span>decision config: ${escapeHtml(rec.decision?.config ?? '—')}</span>
       </div>
       <div>
-        <div class="record-field-label">source_question</div>
-        <div class="record-field-value">${escapeHtml(rec.source_question ?? '')}</div>
-      </div>
-      <div>
-        <div class="record-field-label">removed_span</div>
-        <div class="record-field-value removed">${escapeHtml(rec.removed_span ?? '')}</div>
+        <div class="record-field-label">question</div>
+        <div class="record-field-value">${escapeHtml(rec.question ?? '')}</div>
       </div>
       <div>
         <div class="record-field-label">input_x (prefix)</div>
@@ -1479,8 +1474,8 @@ function renderRecords(records, total, page) {
         <div class="record-field-value target">${escapeHtml(rec.target_y ?? '')}</div>
       </div>
       <div>
-        <div class="record-field-label">decision_explanation</div>
-        <div class="record-field-value" style="color:var(--muted)">${escapeHtml(rec.decision_explanation ?? '')}</div>
+        <div class="record-field-label">decision.commit</div>
+        <div class="record-field-value" style="color:var(--muted)">${escapeHtml(rec.decision?.commit ?? '')}</div>
       </div>
     `;
     panel.appendChild(card);

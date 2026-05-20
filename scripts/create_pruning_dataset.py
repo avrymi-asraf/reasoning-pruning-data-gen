@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Config-driven sentence-pruning runner for sentence-pruning data creation.
+"""Config-driven reasoning-pruning runner for reasoning-pruning data creation.
 
 This wrapper loads `.env` without printing values, parses the TOML config,
 loads real seed/Hugging Face tasks, calls the pruning flow, and writes accepted
@@ -23,7 +23,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from pruning_flow import load_pruning_config, load_tasks, run_pipeline  # noqa: E402
+from pruning_flow import decision_reference, load_pruning_config, load_tasks, run_pipeline  # noqa: E402
 from storage import upload_jsonl_to_hf, write_jsonl  # noqa: E402
 
 
@@ -67,21 +67,39 @@ def config_sha256(config_path: str | Path) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def llm_manifest_metadata(llm_config) -> dict[str, Any]:
+    """Return reproducibility metadata for an LLM config without persisting endpoint secrets."""
+    return {
+        "provider": llm_config.provider,
+        "model": llm_config.model,
+        "temperature": llm_config.temperature,
+        "max_tokens": llm_config.max_tokens,
+        "base_url_configured": bool(llm_config.base_url),
+    }
+
+
 def build_manifest(config, *, accepted_count: int, rejected_count: int, upload_requested: bool, uploaded_url: str | None) -> dict[str, Any]:
     return {
         "manifest_version": "1.0",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "run_name": config.run_name,
         "format_version": config.format_version,
+        "accepted_row_schema": {
+            "name": "compact_pruning_transition",
+            "keys": ["id", "question", "input_x", "target_y", "depth", "decision"],
+            "decision_reference": "Rows store config path plus a deterministic sha256 revision of the decision-related config; full reproducibility metadata lives in this manifest.",
+        },
         "config_path": config.path,
         "config_sha256": config_sha256(config.path),
         "source": asdict(config.source),
         "models": {
-            "generation": asdict(config.generation),
-            "decision": asdict(config.decision),
+            "generation": llm_manifest_metadata(config.generation),
+            "decision": llm_manifest_metadata(config.decision),
         },
         "iteration": asdict(config.iteration),
         "quality": asdict(config.quality),
+        "prompts": asdict(config.prompts),
+        "decision_reference": decision_reference(config),
         "output": {
             "accepted_path": config.output.accepted_path,
             "rejected_path": config.output.rejected_path,

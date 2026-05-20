@@ -1,19 +1,19 @@
 ---
 name: sentence-pruning-frontend
-description: Use when building or extending the management UI for any sentence-pruning repo (data, train, evaluate). Covers tech stack, design system, server architecture, CSS components, tab layout, config forms, run streaming, output browsing, and per-repo extension guide.
+description: Use when building or extending the management UI for any reasoning-pruning repo (data, train, experiments). Covers tech stack, design system, server architecture, CSS components, tab layout, config forms, run streaming, output browsing, and per-repo extension guide.
 ---
 
-# Sentence Pruning Frontend Guide
+# Reasoning Pruning Frontend Guide
 
 This skill is the single source of truth for building management UIs across all three repos:
 
 | Repo | Path | Purpose |
 |------|------|---------|
-| Data | `/home/avreymi/code/sentence-pruning/sentence-pruning-data` | Dataset creation & pruning |
-| Train | `/home/avreymi/code/sentence-pruning/sentence-pruning-train` | LoRA/QLoRA fine-tuning |
-| Evaluate | `/home/avreymi/code/sentence-pruning/sentence-pruning-evaluate` | Eval runs, metrics, comparisons |
+| Data | `/home/avreymi/code/reasoning-pruning/reasoning-pruning-data-gen` | Dataset creation & pruning |
+| Train | `/home/avreymi/code/reasoning-pruning/reasoning-pruning-train` | LoRA/QLoRA fine-tuning |
+| Experiments | `/home/avreymi/code/reasoning-pruning/reasoning-pruning-experiments` | Eval runs, metrics, comparisons |
 
-The Data repo's frontend is the **reference implementation**. The Train and Evaluate repos extend it with their own tabs — the same design language, CSS variables, server pattern, and component classes throughout.
+The Data repo's frontend is the **reference implementation**. The Train and Experiments repos extend it with their own tabs — the same design language, CSS variables, server pattern, and component classes throughout.
 
 ---
 
@@ -635,12 +635,12 @@ document.addEventListener('DOMContentLoaded', () => {
 The skill file at `.opencode/skills/sentence-pruning-frontend/SKILL.md` lives in the Data repo. It is symlinked into the other repos so all three repos share one copy:
 
 ```bash
-# From sentence-pruning-evaluate
-ln -s /home/avreymi/code/sentence-pruning/sentence-pruning-data/.opencode/skills/sentence-pruning-frontend \
+# From reasoning-pruning-experiments
+ln -s /home/avreymi/code/reasoning-pruning/reasoning-pruning-data-gen/.opencode/skills/sentence-pruning-frontend \
       .opencode/skills/sentence-pruning-frontend
 
-# From sentence-pruning-train
-ln -s /home/avreymi/code/sentence-pruning/sentence-pruning-data/.opencode/skills/sentence-pruning-frontend \
+# From reasoning-pruning-train
+ln -s /home/avreymi/code/reasoning-pruning/reasoning-pruning-data-gen/.opencode/skills/sentence-pruning-frontend \
       .opencode/skills/sentence-pruning-frontend
 ```
 

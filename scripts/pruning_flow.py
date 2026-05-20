@@ -1,13 +1,14 @@
-"""Sentence-pruning data-generation flow for the sentence-pruning Data repo.
+"""Reasoning-pruning data-generation flow for the reasoning-pruning-data-gen repo.
 
-This module owns config loading, task loading, reasoning segmentation, strict sentence-pruning
-decision validation, iterative context updates, and accepted/rejected JSONL record
+This module owns config loading, task loading, reasoning segmentation, strict reasoning-pruning
+decision validation, iterative context updates, and compact accepted JSONL row
 assembly. The CLI supplies paths/storage; tests inject a fake call_fn only at the
 Python boundary so the runnable system still uses real LiteLLM calls.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass, field
@@ -124,6 +125,12 @@ class VerificationResult:
     passed: bool
     reasons: list[str]
     checks: dict[str, bool]
+
+
+@dataclass(frozen=True)
+class AcceptedTransition:
+    row: dict[str, Any]
+    pruned_context_after_decision: str
 
 
 CallLLM = Callable[..., str]
@@ -400,21 +407,24 @@ def has_obvious_incoherence(text: str) -> bool:
     return any(fragment in lowered for fragment in ["therefore therefore", "because because", "..", "?."])
 
 
-def model_metadata(config: PruningConfig) -> dict[str, Any]:
+def decision_reference(config: PruningConfig) -> dict[str, str]:
     return {
-        "generation_client": "litellm",
-        "generation_provider": config.generation.provider,
-        "generation_model": config.generation.model,
-        "generation_temperature": config.generation.temperature,
-        "decision_client": "litellm",
-        "decision_provider": config.decision.provider,
-        "decision_model": config.decision.model,
-        "decision_temperature": config.decision.temperature,
-        "generation_base_url_configured": bool(config.generation.base_url),
-        "decision_base_url_configured": bool(config.decision.base_url),
-        "prompt_config_path": config.path,
+        "config": config.path,
+        "commit": decision_config_revision(config),
+    }
+
+
+def decision_config_revision(config: PruningConfig) -> str:
+    payload = {
+        "decision": asdict(config.decision),
+        "decision_system": config.prompts.decision_system,
+        "decision_user_template": config.prompts.decision_user_template,
+        "iteration": asdict(config.iteration),
+        "quality": asdict(config.quality),
         "format_version": config.format_version,
     }
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def reject_record(task: Task, depth: int, reason: str, current_context: str, generation: str = "", decision: PruningDecision | None = None, error: Exception | None = None) -> dict[str, Any]:
@@ -444,35 +454,19 @@ def sanitize_error_message(message: str, limit: int = 300) -> str:
     return scrubbed
 
 
-def build_accepted_record(task: Task, depth: int, current_context: str, generation: str, units: list[Unit], decision: PruningDecision, span: SpanValidation, verification: VerificationResult, config: PruningConfig) -> dict[str, Any]:
+def build_accepted_transition(task: Task, depth: int, current_context: str, span: SpanValidation, config: PruningConfig) -> AcceptedTransition:
     assert span.next_unit is not None
     input_x = build_input_x(task, current_context, span.prefix_units)
     pruned_context = build_pruned_context(current_context, span.prefix_units, span.next_unit)
-    removed_span = " ".join(unit.text for unit in span.removed_units).strip()
-    return {
-        "id": f"{config.run_name}-{task.id}-d{depth}",
-        "source_question": task.prompt,
-        "depth": depth,
+    row = {
+        "id": f"{config.run_name}/{task.id}/{depth}",
+        "question": task.prompt,
         "input_x": input_x,
         "target_y": span.next_unit.text,
-        "removed_span": removed_span,
-        "full_generation_before_pruning": generation,
-        "pruned_context_after_decision": pruned_context,
-        "decision_explanation": decision.rationale,
-        "quality_status": "accepted",
-        "source": task.source,
-        "task_metadata": {"task_id": task.id, **task.metadata},
-        "unit_sequence": [asdict(unit) for unit in units],
-        "removed_unit_ids": [unit.id for unit in span.removed_units],
-        "removed_span_start": span.removed_units[0].index,
-        "removed_span_end": span.removed_units[-1].index,
-        "next_unit_id": span.next_unit.id,
-        "prefix_units": [asdict(unit) for unit in span.prefix_units],
-        "generator_context_before_generation": current_context,
-        "verification": asdict(verification),
-        "model_metadata": model_metadata(config),
-        "format_version": config.format_version,
+        "depth": depth,
+        "decision": decision_reference(config),
     }
+    return AcceptedTransition(row=row, pruned_context_after_decision=pruned_context)
 
 
 def run_pipeline(tasks: list[Task], config: PruningConfig, call_fn: CallLLM = call_llm) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -514,8 +508,8 @@ def run_pipeline(tasks: list[Task], config: PruningConfig, call_fn: CallLLM = ca
                 rejected.append(reject_record(task, depth, ";".join(verification.reasons), current_context, generation, decision))
                 break
 
-            record = build_accepted_record(task, depth, current_context, generation, units, decision, span, verification, config)
-            accepted.append(record)
-            current_context = record["pruned_context_after_decision"]
+            transition = build_accepted_transition(task, depth, current_context, span, config)
+            accepted.append(transition.row)
+            current_context = transition.pruned_context_after_decision
 
     return accepted, rejected

@@ -25,9 +25,9 @@ and remember, you are the manager.you focus on the big picture, the planning, th
 ## Understanding the full goal
 make sure you understand the user's instruction and the overall goal before doing anything. it's very imporant to have a clear image of what happend. what the code do, how the code to thing. use subagent to help you understand the code base if you need. ask the user for clarification if the instruction is vague. in the plan file write the goal in the context of the project. it's important for you, and for the subagents.
 
-### Sentence-Pruning Artifact Stores
+### Reasoning-Pruning Artifact Stores
 
-The sentence-pruning system uses separate private Hugging Face repos as artifact stores. `../sentence-pruning-datasets` is the local workspace that contains private Hugging Face dataset repos; every created dataset should be written there as a Hugging Face dataset repo and updated through normal commits. `../sentence-pruning-checkpoints` is the local workspace that contains private Hugging Face model repos for generator/trained checkpoints. When planning data generation, preserve the chain `generator checkpoint -> dataset commit/version -> trained checkpoint`, and never treat local `outputs/` files as the final dataset store.
+The reasoning-pruning system uses separate private Hugging Face repos as artifact stores. `../reasoning-pruning-datasets` is the local workspace that contains private Hugging Face dataset repos; every created dataset should be written there as a Hugging Face dataset repo and updated through normal commits. `../reasoning-pruning-models` is the local workspace that contains private Hugging Face model repos for generator/trained checkpoints. When planning data generation, preserve the chain `generator checkpoint -> dataset commit/version -> trained checkpoint`, and never treat local `outputs/` files as the final dataset store.
 ---
 ## Creating the stages
 break the big task into stages. think about the milestones that you need to reach to achieve the goal. it can be very You probably won't do it yourself, run a subagent to do it.
@@ -128,7 +128,7 @@ You maintain your own agent file and memory. Keep them accurate — **load the a
 
 ## Session Start Checklist
 
-1. **Read `manager.memory`** — Understand current state, active plans, recent context.
+1. **Read `.opencode/agents/manager.memory`** — Understand current state, active plans, recent context.
 2. **Query the Data-Wiki** — Load relevant domain knowledge for the task at hand.
 3. **Formulate or resume the plan** — Write it to memory before delegating anything.
 4. **Begin the loop** — Plan → Delegate One Step → Review → Update Memory → Repeat.

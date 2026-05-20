@@ -2,7 +2,7 @@
 
 ## Recommendation
 
-Use private Hugging Face Hub dataset repositories as the canonical stores for generated sentence-pruning datasets. Keep local checkouts of those dataset repos under `../sentence-pruning-datasets`; private model/checkpoint repos belong under `../sentence-pruning-checkpoints`.
+Use private Hugging Face Hub dataset repositories as the canonical stores for generated reasoning-pruning datasets. Keep local checkouts of those dataset repos under `../reasoning-pruning-datasets`; private model/checkpoint repos belong under `../reasoning-pruning-models`.
 
 Why this fits this repo:
 
@@ -12,10 +12,10 @@ Why this fits this repo:
 
 ## Proposed layout
 
-Create or check out private dataset repos under `../sentence-pruning-datasets`, for example:
+Create or check out private dataset repos under `../reasoning-pruning-datasets`, for example:
 
 ```text
-<org-or-user>/sentence-pruning-data
+<org-or-user>/reasoning-pruning-data-gen
 ```
 
 Inside the repo, store stable releases by versioned paths:
@@ -69,9 +69,9 @@ Current implementation writes the local run manifest with counts, source setting
 
 1. Generate locally first under `outputs/datasets/`.
 2. Inspect a small sample manually: `input_x`, `target_y`, removed span, task metadata, and rejected audit examples.
-3. Copy reviewed artifacts into the corresponding private dataset repo under `../sentence-pruning-datasets` and commit them there.
+3. Copy reviewed artifacts into the corresponding private dataset repo under `../reasoning-pruning-datasets` and commit them there.
 4. Upload only after deciding this run is a release and setting an explicit repo in config:
-    - `output.hf_upload_repo = "<org-or-user>/sentence-pruning-data"`
+    - `output.hf_upload_repo = "<org-or-user>/reasoning-pruning-data-gen"`
     - `output.hf_upload_path = "data/v0.1.0/train.jsonl"`
     - `output.hf_private = true` for early releases.
 5. Run with the HF optional extra, token from environment, and the explicit upload gate:
@@ -90,6 +90,6 @@ Without `--upload-to-hf`, the run remains local-only even when `output.hf_upload
 
 - S3/GCS/Azure Blob: good for cheap raw archival, but weaker discoverability and less convenient for training/evaluation consumers unless additional registry tooling is added.
 - DVC: strong Git-style data tracking with arbitrary cloud remotes, useful later if local pipelines become large and multi-stage. More operational overhead now.
-- lakeFS: powerful for very large data lakes and zero-copy branches, likely overkill for early sentence-pruning JSONL/Parquet releases.
+- lakeFS: powerful for very large data lakes and zero-copy branches, likely overkill for early reasoning-pruning JSONL/Parquet releases.
 
 Decision: start with Hugging Face Hub. Add S3/DVC later only if dataset size, privacy, or workflow complexity outgrows Hub-only storage.

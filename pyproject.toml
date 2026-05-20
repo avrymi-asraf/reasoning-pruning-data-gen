@@ -1,10 +1,10 @@
 [project]
-name = "sentence-pruning-data"
+name = "reasoning-pruning-data-gen"
 version = "0.1.0"
-description = "Config-driven sentence-pruning data creation with live LLM calls."
+description = "Config-driven reasoning-pruning data creation with live LLM calls."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["litellm>=1.0", "python-dotenv>=1.0", "tomli>=2.0; python_version < '3.11'", "fastapi[standard]>=0.100"]
+dependencies = ["litellm>=1.0", "tenacity>=8.0", "python-dotenv>=1.0", "tomli>=2.0; python_version < '3.11'", "fastapi[standard]>=0.100"]
 
 [project.optional-dependencies]
 hf = ["datasets>=2.0", "huggingface_hub>=0.20"]

@@ -1,4 +1,4 @@
-"""Storage helpers for the sentence-pruning data runner.
+"""Storage helpers for the reasoning-pruning data runner.
 
 Accepted local JSONL is always written first and is the default durable output.
 Rejected/audit JSONL uses the same writer but is kept separate from training data.

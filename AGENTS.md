@@ -2,7 +2,7 @@
 
 * **Description:** This repo creates training datasets for *sentence pruning* — teaching a model to skip redundant intermediate reasoning steps while preserving correctness. It loads reasoning tasks (hardcoded seeds or Hugging Face datasets), generates chain-of-thoug ht outputs via LiteLLM, identifies the first safely removable contiguous reasoning span using a decision LLM, verifies quality, and saves high-quality `(input_x → target_y)` training examples as JSONL. The code runs locally as either a CLI script or a FastAPI management server; generated datasets are uploaded to Hugging Face Hub explicitly (never automatically) as a release decision.
 
-* **Role in the multi-repo system:** This repository is the **data creation layer** for the sentence-pruning project. It must not take over training or evaluation responsibilities: `sentence-pruning-train` consumes the generated transition datasets and writes checkpoints/metadata, while `sentence-pruning-evaluate` coordinates experiment management, benchmark evaluation, and checkpoint-chain tracking. Cross-repo integration is file-based rather than Python imports between repos.
+* **Role in the multi-repo system:** This repository is the **data creation layer** for the reasoning-pruning project. It must not take over training or evaluation responsibilities: `reasoning-pruning-train` consumes the generated PT datasets and writes checkpoints/metadata, while `reasoning-pruning-experiments` coordinates experiment management, benchmark evaluation, and checkpoint-chain tracking. Cross-repo integration is file-based rather than Python imports between repos.
 
 * **Core handoff chain:** Every serious dataset run should preserve enough metadata to reconstruct:
 
@@ -21,7 +21,7 @@ For this repo, that means recording the selected generator checkpoint/model, che
   2. **Pipeline layer** — `scripts/pruning_flow.py` owns the core logic: task loading, LLM generation, unit segmentation, pruning decisions, span validation, quality verification, and record assembly. `scripts/llm_client.py` wraps LiteLLM; `scripts/storage.py` handles JSONL writing and optional Hub upload.
   3. **Entry points** — `scripts/create_pruning_dataset.py` is the CLI runner. `server.py` is a FastAPI server that wraps the CLI and serves the management UI (`pruning-playground.html`) for config management, run launching, live log streaming, and output browsing.
 
-* **Repo boundaries:** Keep this repo focused on acquiring tasks, generating reasoning traces with the selected generator `G`, finding the first safe removable span with decision component `D`, and writing versioned dataset artifacts. Do not add training orchestration, checkpoint evaluation, or benchmark dashboards here unless the user explicitly changes the repo boundary; those belong in `sentence-pruning-train` and `sentence-pruning-evaluate`.
+* **Repo boundaries:** Keep this repo focused on acquiring tasks, generating reasoning traces with the selected generator `G`, finding the first safe removable span with decision component `D`, and writing versioned dataset artifacts. Do not add training orchestration, checkpoint evaluation, or benchmark dashboards here unless the user explicitly changes the repo boundary; those belong in `reasoning-pruning-train` and `reasoning-pruning-experiments`.
 
 * **Code Flow:**
   1. Load TOML config → `PruningConfig` dataclass (validates required prompt placeholders).
@@ -42,7 +42,7 @@ For this repo, that means recording the selected generator checkpoint/model, che
 ## File Structure
 
 ```
-/sentence-pruning-data
+/reasoning-pruning-data-gen
 ├── server.py                    # FastAPI management server + SSE run streaming
 ├── pruning-playground.html      # Single-file 3-tab management UI
 ├── pyproject.toml               # uv project: dependencies, optional extras (hf, dev)
@@ -87,17 +87,17 @@ For this repo, that means recording the selected generator checkpoint/model, che
 Nearby cooperating artifact stores are part of the expected workflow:
 
 ```text
-sentence-pruning-datasets/      # local clone(s) of private Hugging Face dataset repos
-sentence-pruning-checkpoints/    # local clone(s) of private Hugging Face model repos
+reasoning-pruning-datasets/      # local clone(s) of private Hugging Face dataset repos
+reasoning-pruning-models/        # local clone(s) of private Hugging Face model repos
 ```
 
-Use `outputs/` for local run products, inspection, rejected/audit files, and temporary/generated files inside this repo. When a dataset is selected as a durable training input, create or update the appropriate private Hugging Face dataset repo locally under `../sentence-pruning-datasets` and version it by commit/revision. Generator checkpoints should be referenced from `../sentence-pruning-checkpoints` or a clear remote/model artifact reference; do not treat unversioned local outputs as the final long-term dataset store.
+Use `outputs/` for local run products, inspection, rejected/audit files, and temporary/generated files inside this repo. When a dataset is selected as a durable training input, create or update the appropriate private Hugging Face dataset repo locally under `../reasoning-pruning-datasets` and version it by commit/revision. Generator checkpoints should be referenced from `../reasoning-pruning-models` or a clear remote/model artifact reference; do not treat unversioned local outputs as the final long-term dataset store.
 
 The data repo's artifact metadata should support file-based handoffs:
 
-* `sentence-pruning-data` → writes versioned pruning JSONL plus manifest/source metadata.
-* `sentence-pruning-train` → reads dataset artifacts and writes checkpoints plus `run_metadata.json`.
-* `sentence-pruning-evaluate` → reads dataset/checkpoint/training metadata and records evaluation results and checkpoint chains.
+* `reasoning-pruning-data-gen` → writes versioned PT JSONL plus manifest/source metadata.
+* `reasoning-pruning-train` → reads dataset artifacts and writes checkpoints plus `run_metadata.json`.
+* `reasoning-pruning-experiments` → reads dataset/checkpoint/training metadata and records evaluation results and checkpoint chains.
 
 ---
 

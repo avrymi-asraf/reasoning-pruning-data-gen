@@ -2,6 +2,8 @@
 
 ## Short-Term Activity Log
 
+**2026-05-20** — Attempted live small PT preview for BBH logical deduction with `scripts/create_gemma4_hf_pt_preview.py` and HF-hosted `avreymi/reasoning-pruning-gemma-4-E2B-it-assistant`. `.env` presence check showed no `HF_GEMMA4_ENDPOINT_URL` but `HF_TOKEN`/`GEMINI_API_KEY` present; serverless `hf-inference` wrote 0 accepted / 3 rejected under `outputs/datasets/`, blocked by Hugging Face 401 provider-mapping auth/model-access error. No upload, commit, endpoint/token disclosure, or cleanup.
+
 **2026-05-19** — Switched active source sample from SVAMP to BBH logical deduction. Removed `outputs/sources/svamp_sample.jsonl`, downloaded 20 full rows from `lukaemon/bbh` config `logical_deduction_five_objects` split `test[:20]` to `outputs/sources/bbh_logical_deduction_five_objects_sample.jsonl` with `uv run --extra hf`, and validated 20 rows with nonempty `input` plus present/nonempty `target`. Verified `config/bbh-logical-deduction.toml` source values and empty upload target; no generation, upload, commits, or secret inspection.
 
 **2026-05-19** — Cleaned stale generated artifacts from `outputs/`: removed POC outputs, old dataset accepted/rejected/manifest files, and outdated source samples; preserved only `outputs/sources/svamp_sample.jsonl`. Verified final tree has empty `outputs/datasets/` plus the SVAMP source sample, and validated 20 JSONL rows with nonempty `question_concat`. No generation, upload, secrets, source/config/docs/tests touched.

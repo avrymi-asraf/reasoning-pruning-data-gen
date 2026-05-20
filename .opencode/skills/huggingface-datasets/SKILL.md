@@ -1,10 +1,10 @@
 ---
 name: huggingface-datasets
-description: Guides Hugging Face dataset loading and optional gated Hub releases for the sentence-pruning Data repo. Use when discovering external reasoning datasets, configuring HF sources, testing one HF dataset, or releasing inspected JSONL with --upload-to-hf.
+description: Guides Hugging Face dataset loading and optional gated Hub releases for the reasoning-pruning Data repo. Use when discovering external reasoning datasets, configuring HF sources, testing one HF dataset, or releasing inspected JSONL with --upload-to-hf.
 ---
 
 <huggingface-datasets>
-Use this skill when replacing the built-in seed tasks with an external Hugging Face dataset or when releasing an inspected local sentence-pruning JSONL file to a Hugging Face dataset repo. HF has two separate roles here: input source (`source = "hf"`) and optional cloud release target (`--upload-to-hf`). Local dataset creation is always the default; upload happens only after an explicit release decision. Generation and pruning still use the required live LiteLLM client configured in `config/default.toml`.
+Use this skill when replacing the built-in seed tasks with an external Hugging Face dataset or when releasing an inspected local pruning-transition JSONL file to a Hugging Face dataset repo. HF has two separate roles here: input source (`source = "hf"`) and optional cloud release target (`--upload-to-hf`). Local dataset creation is always the default; upload happens only after an explicit release decision. Generation and pruning still use the required live LiteLLM client configured in `config/default.toml`.
 </huggingface-datasets>
 
 <loading-workflow>
