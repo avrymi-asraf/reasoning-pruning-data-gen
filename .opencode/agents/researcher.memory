@@ -1,0 +1,19 @@
+# Researcher Memory
+
+## Log
+
+<!-- One line per durable research event. Most recent first. -->
+
+- 2026-05-18: Recommended Hugging Face Hub as the canonical cloud store for generated sentence-pruning datasets, documented in `docs/dataset-storage.md`: private repo first, semantic version directories plus matching HF git tags, per-version `manifest.json`, exact Hub revision recorded by Training/Evaluation, and S3/DVC/lakeFS deferred until scale requires them.
+- 2026-05-18: Dataset R&D sampled 20 examples each from `openai/gsm8k`, `lukaemon/bbh` (`multistep_arithmetic_two`), `ChilleD/StrategyQA`, and `allenai/ai2_arc` under `outputs/sources/`; live Gemini runs for GSM8K/BBH/StrategyQA with 10 examples produced accepted/rejected counts of 6/4, 8/2, and 9/1 respectively. Use `uv run --with tenacity --extra hf ...` for live HF jobs until `tenacity` is a project dependency.
+- 2026-05-18: Shortlisted small Hugging Face POC sources for sentence-pruning input tasks: `openai/gsm8k` (`main`, train, `question`), `ChilleD/SVAMP` (default, train, `question_concat`), and `lukaemon/bbh` (configs like `multistep_arithmetic_two` or `logical_deduction_three_objects`, test, `input`). Current HF loader only ingests one text field and does not preserve answer fields unless code is extended.
+- 2026-05-18: Converted `research/` to an LLM Wiki structure with `research/INDEX.md`, `research/wiki/index.md`, `research/wiki/log.md`, and concept pages for sentence pruning datasets, data-efficient tuning/selection, LESS, DELIFT, Data Whisperer, LoRA, DoRA, and SeedLoRA. Flagged the Data Whisperer source URL mismatch in `research/raw/INDEX.md`.
+- 2026-05-18: Researched recent few-sample LLM fine-tuning sources and saved PDFs plus index under `research/raw/`. Most relevant for this project: LIMA (1k curated examples), LESS (ICML 2024 targeted data selection; 5% selected data can outperform full data), DELIFT (2024/2025 data-efficient SFT; up to 70% data reduction), Data Whisperer (ACL 2025; training-free selection with 10% data; source URL needs verification), DoRA (ICML 2024 PEFT improvement), SeedLoRA (ICML 2025 LoRA fusion).
+
+## Structured Knowledge
+
+<!-- Stable source-selection rules, research patterns, and project knowledge pointers. -->
+
+- `research/` is now an LLM Wiki: raw immutable sources stay in `research/raw/`, synthesized pages live in `research/wiki/`, and the schema/workflow is in `research/INDEX.md`. Use `research/wiki/` first for project research queries and keep `wiki/index.md` plus `wiki/log.md` updated.
+- For dataset generation/pruning fine-tuning decisions, prioritize high-quality curated examples and eval-driven selection over large raw volume; recent evidence favors targeted selection methods (LESS/DELIFT/Data Whisperer) when only few samples are available.
+- Current Hugging Face input is config-driven (`source = "hf"`, `hf_dataset`, `hf_config`, `hf_split`, `hf_text_field`, `answer_fields`) and preserves scalar answer metadata in `task_metadata`; it still cannot compose multiple fields such as MCQ choices into the prompt. Avoid GSM8K's raw `answer` in live configs until final-answer extraction exists because it contains the full gold rationale.

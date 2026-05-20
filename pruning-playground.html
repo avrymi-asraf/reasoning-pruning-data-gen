@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentence Pruning · Data Manager</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242736;
+    --border: #2e3146;
+    --text: #e2e4ef;
+    --muted: #7b7f99;
+    --accent: #5b6aff;
+    --accent-dim: #3d4acc;
+    --green: #3ecf8e;
+    --red: #f66;
+    --yellow: #f5c543;
+    --orange: #ff8c42;
+    --radius: 8px;
+    --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    --sans: system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
+  header .subtitle { color: var(--muted); font-size: 12px; }
+  header .spacer { flex: 1; }
+
+  .badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--muted);
+  }
+
+  /* ── Tab nav ─────────────────────────────────────────────────────────────── */
+  .tab-nav {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    padding: 0 12px;
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: -1px;
+    padding: 10px 16px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .tab-btn:hover { color: var(--text); background: none; }
+
+  .tab-btn.active {
+    border-bottom-color: var(--accent);
+    color: var(--accent);
+    background: none;
+  }
+
+  /* ── Tab content ─────────────────────────────────────────────────────────── */
+  .tab-content {
+    display: none;
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+  }
+
+  .tab-content.active { display: flex; }
+
+  /* ── Two-panel layout ────────────────────────────────────────────────────── */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+
+  .panel:last-child { border-right: none; }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+  }
+
+  .panel-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* ── Form elements ───────────────────────────────────────────────────────── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  select, textarea, input[type="text"], input[type="number"], input[type="password"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 7px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  select:focus, textarea:focus, input:focus { border-color: var(--accent); }
+
+  textarea {
+    font-family: var(--mono);
+    font-size: 12px;
+    resize: vertical;
+    min-height: 60px;
+  }
+
+  textarea.prompt-editor { min-height: 120px; line-height: 1.6; }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-size: 11px; color: var(--muted); }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    padding: 4px 0;
+  }
+
+  input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* ── Buttons ─────────────────────────────────────────────────────────────── */
+  button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 12px;
+    padding: 5px 12px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  button:hover { background: var(--border); }
+
+  button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  button.btn-primary {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    padding: 7px 18px;
+    font-weight: 500;
+  }
+
+  button.btn-primary:hover { background: var(--accent); }
+
+  button.btn-run {
+    background: var(--green);
+    border-color: var(--green);
+    color: #0a1a12;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 20px;
+  }
+
+  button.btn-run:hover { filter: brightness(1.1); }
+  button.btn-run:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+
+  button.btn-copy {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 14px;
+  }
+
+  button.btn-copy:hover { background: var(--accent); }
+  button.btn-copy.copied { background: var(--green); border-color: var(--green); }
+
+  button.btn-danger {
+    background: rgba(255,102,102,0.1);
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  button.btn-danger:hover { background: rgba(255,102,102,0.2); }
+
+  .btn-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* ── Config file selector ────────────────────────────────────────────────── */
+  .config-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .config-bar select { flex: 1; }
+  .config-bar input[type="text"] { width: 160px; }
+
+  /* ── Section group ───────────────────────────────────────────────────────── */
+  .form-section {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-section-header {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  /* ── Execution panel ──────────────────────────────────────────────────────── */
+  .exec-panel {
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+  }
+
+  .exec-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .run-status {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+  }
+
+  .run-status.running { color: var(--yellow); border-color: var(--yellow); background: rgba(245,197,67,0.08); }
+  .run-status.done    { color: var(--green);  border-color: var(--green);  background: rgba(62,207,142,0.08); }
+  .run-status.error   { color: var(--red);    border-color: var(--red);    background: rgba(255,102,102,0.08); }
+
+  .log-viewer {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 10px 14px;
+    overflow-y: auto;
+    height: 200px;
+    background: var(--bg);
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .log-viewer .log-err { color: var(--red); }
+  .log-viewer .log-ok  { color: var(--green); }
+
+  /* ── Prompt accordion ────────────────────────────────────────────────────── */
+  .prompt-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .prompt-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    background: var(--surface2);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .prompt-item-header:hover { background: var(--border); }
+
+  .prompt-item-title {
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--accent);
+  }
+
+  .prompt-item-arrow {
+    font-size: 11px;
+    color: var(--muted);
+    transition: transform 0.15s;
+  }
+
+  .prompt-item.open .prompt-item-arrow { transform: rotate(180deg); }
+
+  .prompt-item-body {
+    display: none;
+    padding: 8px;
+    background: var(--bg);
+  }
+
+  .prompt-item.open .prompt-item-body { display: block; }
+
+  .prompt-item-body textarea { min-height: 100px; }
+
+  /* ── Output browser ──────────────────────────────────────────────────────── */
+  .file-list { display: flex; flex-direction: column; gap: 4px; }
+
+  .file-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+  }
+
+  .file-row:hover { background: var(--border); }
+  .file-row.active { border-color: var(--accent); background: rgba(91,106,255,0.06); }
+
+  .file-name { font-family: var(--mono); font-size: 12px; flex: 1; }
+  .file-meta { font-size: 11px; color: var(--muted); }
+
+  .record-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .record-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  .record-field-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 2px;
+  }
+
+  .record-field-value {
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+    padding: 6px 8px;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .record-field-value.removed { color: var(--red); }
+  .record-field-value.target  { color: var(--green); }
+
+  .record-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+  .record-meta span { font-family: var(--mono); }
+
+  .pagination { display: flex; align-items: center; gap: 8px; }
+  .page-info { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  /* ── Playground (existing) ───────────────────────────────────────────────── */
+  textarea.response-input { min-height: 100px; }
+
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .units-list { display: flex; flex-direction: column; gap: 4px; }
+
+  .unit-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+    user-select: none;
+  }
+
+  .unit-row:hover { background: var(--border); }
+  .unit-row.removed { background: rgba(255,102,102,0.08); border-color: rgba(255,102,102,0.3); text-decoration: line-through; color: var(--red); }
+  .unit-row.kept    { background: rgba(62,207,142,0.08);  border-color: rgba(62,207,142,0.3);  color: var(--green); }
+
+  .unit-id { flex-shrink: 0; color: var(--muted); font-size: 11px; width: 34px; padding-top: 1px; }
+  .unit-text { flex: 1; line-height: 1.5; }
+  .toggle-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .rendered-prompt {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+
+  .prompt-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+
+  .result-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .result-box .removed-span { text-decoration: line-through; color: var(--red); background: rgba(255,102,102,0.1); border-radius: 3px; padding: 0 2px; }
+  .result-box .kept-span    { color: var(--green); }
+  .result-box .sep          { color: var(--border); }
+
+  .pruned-box {
+    background: var(--surface2);
+    border: 1px solid var(--green);
+    border-radius: var(--radius);
+    padding: 12px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--green);
+  }
+
+  .checks { display: flex; flex-direction: column; gap: 4px; }
+
+  .check-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-family: var(--mono); }
+  .check-icon { font-size: 14px; }
+  .check-pass { color: var(--green); }
+  .check-fail { color: var(--red); }
+  .check-warn { color: var(--yellow); }
+
+  .parse-error {
+    color: var(--orange);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    background: rgba(255,140,66,0.08);
+    border: 1px solid rgba(255,140,66,0.3);
+    border-radius: var(--radius);
+  }
+
+  .rationale-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .token-count { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+  .reduction-bar-wrap {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    height: 6px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  .reduction-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); transition: width 0.3s; }
+
+  .stats-row { display: flex; gap: 16px; font-size: 12px; font-family: var(--mono); }
+  .stat { color: var(--muted); }
+  .stat span { color: var(--text); }
+
+  .empty-state { color: var(--muted); font-size: 12px; font-style: italic; text-align: center; padding: 20px 0; }
+
+  .pill {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--muted);
+  }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 2px 0; }
+
+  /* ── Scrollbar ───────────────────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════════════════════════════════════ -->
+<header>
+  <h1>Sentence Pruning</h1>
+  <span class="subtitle">Data Manager</span>
+  <div class="spacer"></div>
+  <span class="badge" id="serverBadge">server</span>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     TAB NAV
+════════════════════════════════════════════════════════════════════════════ -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('run')">⚙ Config &amp; Run</button>
+  <button class="tab-btn" onclick="switchTab('outputs')">📂 Outputs</button>
+  <button class="tab-btn" onclick="switchTab('playground')">🔬 Playground</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     TAB 1 · CONFIG & RUN
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-run" class="tab-content active">
+
+  <!-- Config file bar -->
+  <div class="config-bar">
+    <span style="font-size:11px;color:var(--muted);white-space:nowrap">Config:</span>
+    <select id="configSelect" onchange="onConfigSelectChange()">
+      <option value="">— select —</option>
+    </select>
+    <input type="text" id="configNameInput" placeholder="name" style="width:160px" />
+    <button onclick="loadSelectedConfig()">Load</button>
+    <button class="btn-primary" onclick="saveConfig()">Save</button>
+    <button onclick="newConfig()">New</button>
+  </div>
+
+  <div class="main">
+
+    <!-- LEFT PANEL: Config form -->
+    <div class="panel">
+      <div class="panel-header">⚙ Settings</div>
+      <div class="panel-body">
+
+        <!-- [run] -->
+        <div class="form-section">
+          <div class="form-section-header">[run]</div>
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label">run_name</label>
+              <input type="text" id="cfg_run_name" placeholder="seed-dev" />
+            </div>
+            <div class="field">
+              <label class="field-label">random_seed</label>
+              <input type="number" id="cfg_run_seed" placeholder="1" min="0" />
+            </div>
+          </div>
+        </div>
+
+        <!-- [source] -->
+        <div class="form-section">
+          <div class="form-section-header">[source]</div>
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label">source</label>
+              <select id="cfg_source_type" onchange="onSourceTypeChange()">
+                <option value="seed">seed</option>
+                <option value="hf">hf (HuggingFace)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">limit</label>
+              <input type="number" id="cfg_source_limit" placeholder="1" min="1" />
+            </div>
+          </div>
+          <div id="hf-fields">
+            <div class="form-row" style="margin-top:4px">
+              <div class="field">
+                <label class="field-label">hf_dataset</label>
+                <input type="text" id="cfg_hf_dataset" placeholder="ChilleD/SVAMP" />
+              </div>
+              <div class="field">
+                <label class="field-label">hf_split</label>
+                <input type="text" id="cfg_hf_split" placeholder="train" />
+              </div>
+            </div>
+            <div class="form-row" style="margin-top:4px">
+              <div class="field">
+                <label class="field-label">hf_text_field</label>
+                <input type="text" id="cfg_hf_text_field" placeholder="question_concat" />
+              </div>
+              <div class="field">
+                <label class="field-label">hf_config (optional)</label>
+                <input type="text" id="cfg_hf_config" placeholder="" />
+              </div>
+            </div>
+            <div class="field" style="margin-top:4px">
+              <label class="field-label">answer_fields (comma-separated)</label>
+              <input type="text" id="cfg_answer_fields" placeholder="Answer,answer,target" />
+            </div>
+          </div>
+        </div>
+
+        <!-- [generation] -->
+        <div class="form-section">
+          <div class="form-section-header">[generation]</div>
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label">provider</label>
+              <select id="cfg_gen_provider">
+                <option value="gemini">gemini</option>
+                <option value="openai">openai</option>
+                <option value="openai-compatible">openai-compatible</option>
+                <option value="local">local</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">model</label>
+              <input type="text" id="cfg_gen_model" placeholder="gemini/gemini-2.5-flash-lite" />
+            </div>
+          </div>
+          <div class="form-row triple" style="margin-top:4px">
+            <div class="field">
+              <label class="field-label">temperature</label>
+              <input type="number" id="cfg_gen_temp" placeholder="0.2" step="0.05" min="0" max="2" />
+            </div>
+            <div class="field">
+              <label class="field-label">max_tokens</label>
+              <input type="number" id="cfg_gen_max_tokens" placeholder="1200" min="1" />
+            </div>
+            <div class="field">
+              <label class="field-label">retries</label>
+              <input type="number" id="cfg_gen_retries" placeholder="1" min="0" />
+            </div>
+          </div>
+          <div class="field" style="margin-top:4px">
+            <label class="field-label">base_url (optional)</label>
+            <input type="text" id="cfg_gen_base_url" placeholder="" />
+          </div>
+        </div>
+
+        <!-- [decision] -->
+        <div class="form-section">
+          <div class="form-section-header">[decision]</div>
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label">provider</label>
+              <select id="cfg_dec_provider">
+                <option value="gemini">gemini</option>
+                <option value="openai">openai</option>
+                <option value="openai-compatible">openai-compatible</option>
+                <option value="local">local</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">model</label>
+              <input type="text" id="cfg_dec_model" placeholder="gemini/gemini-2.5-flash-lite" />
+            </div>
+          </div>
+          <div class="form-row triple" style="margin-top:4px">
+            <div class="field">
+              <label class="field-label">temperature</label>
+              <input type="number" id="cfg_dec_temp" placeholder="0.0" step="0.05" min="0" max="2" />
+            </div>
+            <div class="field">
+              <label class="field-label">max_tokens</label>
+              <input type="number" id="cfg_dec_max_tokens" placeholder="600" min="1" />
+            </div>
+            <div class="field">
+              <label class="field-label">retries</label>
+              <input type="number" id="cfg_dec_retries" placeholder="1" min="0" />
+            </div>
+          </div>
+          <div class="field" style="margin-top:4px">
+            <label class="field-label">base_url (optional)</label>
+            <input type="text" id="cfg_dec_base_url" placeholder="" />
+          </div>
+        </div>
+
+        <!-- [iteration] -->
+        <div class="form-section">
+          <div class="form-section-header">[iteration]</div>
+          <div class="form-row triple">
+            <div class="field">
+              <label class="field-label">max_depth</label>
+              <input type="number" id="cfg_iter_max_depth" placeholder="1" min="1" />
+            </div>
+            <div class="field">
+              <label class="field-label">min_generated_units</label>
+              <input type="number" id="cfg_iter_min_units" placeholder="3" min="1" />
+            </div>
+            <div class="field">
+              <label class="field-label">max_span_length</label>
+              <input type="number" id="cfg_iter_span" placeholder="2" min="1" />
+            </div>
+          </div>
+        </div>
+
+        <!-- [quality] -->
+        <div class="form-section">
+          <div class="form-section-header">[quality]</div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="cfg_quality_final_answer" />
+            require_final_answer_preservation
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="cfg_quality_incoherence" checked />
+            reject_obvious_incoherence
+          </label>
+        </div>
+
+        <!-- [output] -->
+        <div class="form-section">
+          <div class="form-section-header">[output]</div>
+          <div class="field">
+            <label class="field-label">accepted_path</label>
+            <input type="text" id="cfg_out_accepted" placeholder="outputs/datasets/run.jsonl" />
+          </div>
+          <div class="field" style="margin-top:4px">
+            <label class="field-label">rejected_path</label>
+            <input type="text" id="cfg_out_rejected" placeholder="outputs/datasets/run.rejected.jsonl" />
+          </div>
+          <div class="field" style="margin-top:4px">
+            <label class="field-label">hf_upload_repo (optional)</label>
+            <input type="text" id="cfg_out_hf_repo" placeholder="" />
+          </div>
+          <label class="checkbox-row" style="margin-top:4px">
+            <input type="checkbox" id="cfg_out_hf_private" />
+            hf_private
+          </label>
+        </div>
+
+      </div>
+    </div><!-- /left panel -->
+
+    <!-- RIGHT PANEL: Prompts + Execution -->
+    <div class="panel" style="display:flex;flex-direction:column;overflow:hidden">
+
+      <div class="panel-header">✍ Prompts</div>
+
+      <!-- Prompt accordion (scrollable) -->
+      <div style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px">
+
+        <div class="prompt-item open" id="pi-gen-sys">
+          <div class="prompt-item-header" onclick="togglePrompt('pi-gen-sys')">
+            <span class="prompt-item-title">generation_system</span>
+            <span class="prompt-item-arrow">▲</span>
+          </div>
+          <div class="prompt-item-body">
+            <textarea class="prompt-editor" id="cfg_p_gen_sys" placeholder="System prompt for the generation model…"></textarea>
+          </div>
+        </div>
+
+        <div class="prompt-item" id="pi-gen-user">
+          <div class="prompt-item-header" onclick="togglePrompt('pi-gen-user')">
+            <span class="prompt-item-title">generation_user_template</span>
+            <span class="prompt-item-arrow">▼</span>
+          </div>
+          <div class="prompt-item-body">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Placeholders: {task_prompt}, {answer_hint}</div>
+            <textarea class="prompt-editor" id="cfg_p_gen_user" placeholder="User prompt template for generation…"></textarea>
+          </div>
+        </div>
+
+        <div class="prompt-item" id="pi-cont-user">
+          <div class="prompt-item-header" onclick="togglePrompt('pi-cont-user')">
+            <span class="prompt-item-title">continuation_user_template</span>
+            <span class="prompt-item-arrow">▼</span>
+          </div>
+          <div class="prompt-item-body">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Placeholders: {task_prompt}, {answer_hint}, {current_context}</div>
+            <textarea class="prompt-editor" id="cfg_p_cont_user" placeholder="Continuation prompt template…"></textarea>
+          </div>
+        </div>
+
+        <div class="prompt-item" id="pi-dec-sys">
+          <div class="prompt-item-header" onclick="togglePrompt('pi-dec-sys')">
+            <span class="prompt-item-title">decision_system</span>
+            <span class="prompt-item-arrow">▼</span>
+          </div>
+          <div class="prompt-item-body">
+            <textarea class="prompt-editor" id="cfg_p_dec_sys" placeholder="System prompt for the decision model…"></textarea>
+          </div>
+        </div>
+
+        <div class="prompt-item" id="pi-dec-user">
+          <div class="prompt-item-header" onclick="togglePrompt('pi-dec-user')">
+            <span class="prompt-item-title">decision_user_template</span>
+            <span class="prompt-item-arrow">▼</span>
+          </div>
+          <div class="prompt-item-body">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Placeholders: {task_prompt}, {answer_hint}, {current_context}, {generation}, {unit_lines}, {max_span_length}</div>
+            <textarea class="prompt-editor" id="cfg_p_dec_user" placeholder="Decision prompt template…"></textarea>
+          </div>
+        </div>
+
+      </div><!-- /prompt accordion -->
+
+      <!-- Execution controls -->
+      <div class="exec-panel">
+        <div class="exec-header">
+          <button class="btn-run" id="runBtn" onclick="startRun()">▶ Run Pipeline</button>
+          <button onclick="stopRun()" id="stopBtn" style="display:none" class="btn-danger">■ Stop</button>
+          <span class="run-status" id="runStatus">idle</span>
+          <label class="checkbox-row" style="margin-left:4px;font-size:11px;color:var(--muted)">
+            <input type="checkbox" id="uploadToHF" />
+            upload to HF
+          </label>
+          <div style="flex:1"></div>
+          <button onclick="clearLog()" style="font-size:11px">Clear log</button>
+        </div>
+        <div class="log-viewer" id="logViewer"><span style="color:var(--muted)">Run output will appear here…</span></div>
+      </div>
+
+    </div><!-- /right panel -->
+
+  </div><!-- /main -->
+</div><!-- /tab-run -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     TAB 2 · OUTPUTS
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-outputs" class="tab-content">
+  <div class="main">
+
+    <!-- LEFT: file list -->
+    <div class="panel">
+      <div class="panel-header">
+        📄 Output Files
+        <div style="flex:1"></div>
+        <button onclick="loadOutputsList()" style="font-size:11px;padding:2px 8px">Refresh</button>
+      </div>
+      <div class="panel-body">
+        <div class="file-list" id="fileList">
+          <div class="empty-state">No output files found.<br>Run the pipeline to generate data.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: record viewer -->
+    <div class="panel">
+      <div class="panel-header">
+        🔍 Records
+        <div style="flex:1"></div>
+        <div class="pagination" id="pagination" style="display:none">
+          <button onclick="prevPage()" id="prevBtn">‹</button>
+          <span class="page-info" id="pageInfo">0/0</span>
+          <button onclick="nextPage()" id="nextBtn">›</button>
+        </div>
+      </div>
+      <div class="panel-body" id="recordsPanel">
+        <div class="empty-state">Select an output file to view records.</div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /tab-outputs -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     TAB 3 · PLAYGROUND
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-playground" class="tab-content">
+  <div class="main">
+
+    <!-- LEFT PANEL: Inputs -->
+    <div class="panel">
+      <div class="panel-header"><span>⬅</span> Inputs</div>
+      <div class="panel-body">
+
+        <div>
+          <div class="section-label">Task</div>
+          <select id="taskSelect" onchange="onTaskChange()">
+            <option value="0">Arithmetic · Train speed (45 mi / 1.5 h)</option>
+            <option value="1">Word problem · Maya's marbles</option>
+            <option value="2">Logic · Bloops / razzies / lazzies</option>
+            <option value="3">Ratio · Cookie recipe</option>
+            <option value="4">Word problem · Students in teams</option>
+            <option value="5">Logic · Box weights</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </div>
+
+        <div id="customPromptWrap" style="display:none">
+          <div class="section-label">Custom task prompt</div>
+          <textarea id="customTaskPrompt" rows="2" placeholder="Enter the task prompt…" oninput="onCustomInput()"></textarea>
+        </div>
+
+        <div>
+          <div class="section-label">Model output (editable)</div>
+          <textarea id="modelOutput" rows="4" placeholder="Model's generated answer…" oninput="onOutputChange()"></textarea>
+        </div>
+
+        <div>
+          <div class="section-label">Pruning units <span class="pill" id="unitCount">0 units</span></div>
+          <div class="units-list" id="unitsList"></div>
+          <div class="toggle-hint">Click a unit to manually toggle removal (overrides LLM response)</div>
+        </div>
+
+        <div>
+          <div class="section-label">Pruning prompt template</div>
+          <div class="presets" id="presetBtns"></div>
+          <textarea class="prompt-editor" id="promptTemplate" oninput="onTemplateChange()" placeholder="Use {units} where the numbered units should appear."></textarea>
+          <div class="token-count" id="templateCharCount"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Outputs -->
+    <div class="panel">
+      <div class="panel-header"><span>➡</span> Results</div>
+      <div class="panel-body">
+
+        <div>
+          <div class="prompt-toolbar">
+            <div class="section-label" style="margin-bottom:0">Rendered prompt (send this to the LLM)</div>
+            <button class="btn-copy" id="copyBtn" onclick="copyPrompt()">Copy</button>
+          </div>
+          <div class="rendered-prompt" id="renderedPrompt"></div>
+          <div class="token-count" id="renderedCharCount"></div>
+        </div>
+
+        <div>
+          <div class="section-label">LLM response (paste JSON here)</div>
+          <textarea class="response-input" id="llmResponse" placeholder='{"remove_unit_ids": ["u000", "u001"], "rationale": "These are filler phrases."}' oninput="onResponseChange()"></textarea>
+          <div id="parseError" style="display:none" class="parse-error"></div>
+        </div>
+
+        <div id="rationaleWrap" style="display:none">
+          <div class="section-label">Rationale</div>
+          <div class="rationale-box" id="rationaleBox"></div>
+        </div>
+
+        <div id="statsWrap" style="display:none">
+          <div class="section-label">Reduction</div>
+          <div class="stats-row">
+            <div class="stat">Original <span id="origTokens">—</span></div>
+            <div class="stat">Pruned <span id="prunedTokens">—</span></div>
+            <div class="stat">Removed <span id="removedPct">—</span></div>
+          </div>
+          <div class="reduction-bar-wrap">
+            <div class="reduction-bar" id="reductionBar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div id="checksWrap" style="display:none">
+          <div class="section-label">Verification</div>
+          <div class="checks" id="checksList"></div>
+        </div>
+
+        <div id="diffWrap" style="display:none">
+          <div class="section-label">Original (annotated)</div>
+          <div class="result-box" id="diffBox"></div>
+        </div>
+
+        <div id="prunedWrap" style="display:none">
+          <div class="section-label">Pruned output</div>
+          <div class="pruned-box" id="prunedBox"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div><!-- /tab-playground -->
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════════════════════════ -->
+<script>
+
+// ─── Tab system ───────────────────────────────────────────────────────────────
+
+const TABS = ['run', 'outputs', 'playground'];
+
+function switchTab(name) {
+  TABS.forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+  });
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', TABS[i] === name);
+  });
+  if (name === 'outputs') loadOutputsList();
+}
+
+// ─── Server connectivity check ────────────────────────────────────────────────
+
+async function checkServer() {
+  try {
+    const r = await fetch('/api/configs', { signal: AbortSignal.timeout(2000) });
+    if (r.ok) {
+      document.getElementById('serverBadge').textContent = 'server ✓';
+      document.getElementById('serverBadge').style.color = 'var(--green)';
+      return true;
+    }
+  } catch {}
+  document.getElementById('serverBadge').textContent = 'server offline';
+  document.getElementById('serverBadge').style.color = 'var(--red)';
+  return false;
+}
+
+// ─── Config management ────────────────────────────────────────────────────────
+
+async function loadConfigList() {
+  try {
+    const r = await fetch('/api/configs');
+    if (!r.ok) return;
+    const { configs } = await r.json();
+    const sel = document.getElementById('configSelect');
+    sel.innerHTML = '<option value="">— select —</option>';
+    configs.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name;
+      opt.textContent = c.name;
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+
+function onConfigSelectChange() {
+  const name = document.getElementById('configSelect').value;
+  document.getElementById('configNameInput').value = name;
+}
+
+async function loadSelectedConfig() {
+  const name = document.getElementById('configNameInput').value.trim() ||
+               document.getElementById('configSelect').value;
+  if (!name) { alert('Select or enter a config name.'); return; }
+  try {
+    const r = await fetch(`/api/config/${encodeURIComponent(name)}`);
+    if (!r.ok) { alert(`Config '${name}' not found.`); return; }
+    const { data } = await r.json();
+    populateForm(data);
+    document.getElementById('configNameInput').value = name;
+    document.getElementById('configSelect').value = name;
+  } catch (e) { alert('Failed to load config: ' + e); }
+}
+
+function populateForm(d) {
+  const run = d.run || {};
+  setValue('cfg_run_name', run.run_name ?? '');
+  setValue('cfg_run_seed', run.random_seed ?? '');
+
+  const src = d.source || {};
+  setValue('cfg_source_type', src.source ?? 'seed');
+  setValue('cfg_source_limit', src.limit ?? '');
+  setValue('cfg_hf_dataset', src.hf_dataset ?? '');
+  setValue('cfg_hf_split', src.hf_split ?? 'train');
+  setValue('cfg_hf_text_field', src.hf_text_field ?? '');
+  setValue('cfg_hf_config', src.hf_config ?? '');
+  setValue('cfg_answer_fields', (src.answer_fields ?? []).join(','));
+  onSourceTypeChange();
+
+  const gen = d.generation || {};
+  setValue('cfg_gen_provider', gen.provider ?? 'gemini');
+  setValue('cfg_gen_model', gen.model ?? '');
+  setValue('cfg_gen_temp', gen.temperature ?? '');
+  setValue('cfg_gen_max_tokens', gen.max_tokens ?? '');
+  setValue('cfg_gen_retries', gen.retries ?? '');
+  setValue('cfg_gen_base_url', gen.base_url ?? '');
+
+  const dec = d.decision || {};
+  setValue('cfg_dec_provider', dec.provider ?? 'gemini');
+  setValue('cfg_dec_model', dec.model ?? '');
+  setValue('cfg_dec_temp', dec.temperature ?? '');
+  setValue('cfg_dec_max_tokens', dec.max_tokens ?? '');
+  setValue('cfg_dec_retries', dec.retries ?? '');
+  setValue('cfg_dec_base_url', dec.base_url ?? '');
+
+  const it = d.iteration || {};
+  setValue('cfg_iter_max_depth', it.max_depth ?? '');
+  setValue('cfg_iter_min_units', it.min_generated_units ?? '');
+  setValue('cfg_iter_span', it.max_removable_span_length ?? '');
+
+  const q = d.quality || {};
+  document.getElementById('cfg_quality_final_answer').checked = !!q.require_final_answer_preservation;
+  document.getElementById('cfg_quality_incoherence').checked = q.reject_obvious_incoherence !== false;
+
+  const out = d.output || {};
+  setValue('cfg_out_accepted', out.accepted_path ?? '');
+  setValue('cfg_out_rejected', out.rejected_path ?? '');
+  setValue('cfg_out_hf_repo', out.hf_upload_repo ?? '');
+  document.getElementById('cfg_out_hf_private').checked = !!out.hf_private;
+
+  const p = d.prompts || {};
+  setValue('cfg_p_gen_sys',   p.generation_system ?? '');
+  setValue('cfg_p_gen_user',  p.generation_user_template ?? '');
+  setValue('cfg_p_cont_user', p.continuation_user_template ?? '');
+  setValue('cfg_p_dec_sys',   p.decision_system ?? '');
+  setValue('cfg_p_dec_user',  p.decision_user_template ?? '');
+}
+
+function collectFormData() {
+  return {
+    run: {
+      run_name:       str('cfg_run_name') || defaultRunName(),
+      format_version: '1.0',
+      random_seed: num('cfg_run_seed') ?? 1,
+    },
+    source: {
+      source:         str('cfg_source_type'),
+      limit:          num('cfg_source_limit') ?? 1,
+      hf_dataset:     str('cfg_hf_dataset'),
+      hf_config:      str('cfg_hf_config'),
+      hf_split:       str('cfg_hf_split') || 'train',
+      hf_text_field:  str('cfg_hf_text_field'),
+      answer_fields:  str('cfg_answer_fields').split(',').map(s => s.trim()).filter(Boolean),
+    },
+    output: {
+      accepted_path: str('cfg_out_accepted') || 'outputs/datasets/run.jsonl',
+      rejected_path: str('cfg_out_rejected') || '',
+      hf_upload_repo: str('cfg_out_hf_repo') || '',
+      hf_upload_path: '',
+      hf_private: document.getElementById('cfg_out_hf_private').checked,
+    },
+    generation: {
+      provider:    str('cfg_gen_provider'),
+      model:       str('cfg_gen_model') || 'gemini/gemini-2.5-flash-lite',
+      base_url:    str('cfg_gen_base_url'),
+      temperature: numF('cfg_gen_temp') ?? 0.2,
+      max_tokens:  num('cfg_gen_max_tokens') ?? 1200,
+      timeout:     120,
+      retries:     num('cfg_gen_retries') ?? 1,
+    },
+    decision: {
+      provider:    str('cfg_dec_provider'),
+      model:       str('cfg_dec_model') || 'gemini/gemini-2.5-flash-lite',
+      base_url:    str('cfg_dec_base_url'),
+      temperature: numF('cfg_dec_temp') ?? 0.0,
+      max_tokens:  num('cfg_dec_max_tokens') ?? 600,
+      timeout:     120,
+      retries:     num('cfg_dec_retries') ?? 1,
+    },
+    iteration: {
+      max_depth:                 num('cfg_iter_max_depth') ?? 1,
+      min_generated_units:       num('cfg_iter_min_units') ?? 3,
+      max_removable_span_length: num('cfg_iter_span') ?? 2,
+      stop_statuses:             ['no_prune', 'stop'],
+    },
+    quality: {
+      require_final_answer_preservation: document.getElementById('cfg_quality_final_answer').checked,
+      reject_obvious_incoherence:        document.getElementById('cfg_quality_incoherence').checked,
+    },
+    prompts: {
+      generation_system:            str('cfg_p_gen_sys'),
+      generation_user_template:     str('cfg_p_gen_user'),
+      continuation_user_template:   str('cfg_p_cont_user'),
+      decision_system:              str('cfg_p_dec_sys'),
+      decision_user_template:       str('cfg_p_dec_user'),
+    },
+  };
+}
+
+function defaultRunName() {
+  const sourceType = str('cfg_source_type');
+  const dataset = str('cfg_hf_dataset').toLowerCase();
+  if (sourceType === 'hf' && dataset.includes('svamp')) return 'svamp-baseline';
+  return 'seed-dev';
+}
+
+async function saveConfig() {
+  const name = document.getElementById('configNameInput').value.trim();
+  if (!name) { alert('Enter a config name first.'); return; }
+  const data = collectFormData();
+  try {
+    const r = await fetch(`/api/config/${encodeURIComponent(name)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data }),
+    });
+    if (!r.ok) { alert('Save failed.'); return; }
+    await loadConfigList();
+    document.getElementById('configSelect').value = name;
+    appendLog(`✓ Config saved as config/${name}.toml\n`);
+  } catch (e) { alert('Save error: ' + e); }
+}
+
+function newConfig() {
+  document.getElementById('configNameInput').value = 'my-run';
+  document.getElementById('configSelect').value = '';
+  // Leave form as-is so user can customise from current values
+}
+
+function onSourceTypeChange() {
+  const isHF = document.getElementById('cfg_source_type').value === 'hf';
+  document.getElementById('hf-fields').style.display = isHF ? '' : 'none';
+}
+
+// ─── Prompt accordion ─────────────────────────────────────────────────────────
+
+function togglePrompt(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+  el.querySelector('.prompt-item-arrow').textContent = el.classList.contains('open') ? '▲' : '▼';
+}
+
+// ─── Run management ────────────────────────────────────────────────────────────
+
+let _activeEventSource = null;
+
+async function startRun() {
+  const name = document.getElementById('configNameInput').value.trim();
+  if (!name) { alert('Load or save a config first.'); return; }
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('stopBtn').style.display = '';
+  setRunStatus('running');
+  appendLog(`\n▶ Starting run with config: ${name}\n`);
+
+  try {
+    const r = await fetch('/api/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        config_name: name,
+        upload_to_hf: document.getElementById('uploadToHF').checked,
+      }),
+    });
+    if (!r.ok) { appendLog('✗ Failed to start run\n'); finishRun('error'); return; }
+    const { run_id } = await r.json();
+    appendLog(`  run_id: ${run_id}\n`);
+
+    if (_activeEventSource) _activeEventSource.close();
+    _activeEventSource = new EventSource(`/api/run/${run_id}/stream`);
+    _activeEventSource.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.line) appendLog(data.line);
+      if (data.done) {
+        _activeEventSource.close();
+        finishRun(data.status);
+      }
+    };
+    _activeEventSource.onerror = () => {
+      appendLog('✗ Stream error\n');
+      finishRun('error');
+    };
+  } catch (err) {
+    appendLog(`✗ ${err}\n`);
+    finishRun('error');
+  }
+}
+
+function stopRun() {
+  if (_activeEventSource) { _activeEventSource.close(); _activeEventSource = null; }
+  finishRun('stopped');
+  appendLog('■ Run stopped by user\n');
+}
+
+function finishRun(status) {
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('stopBtn').style.display = 'none';
+  setRunStatus(status);
+}
+
+function setRunStatus(status) {
+  const el = document.getElementById('runStatus');
+  el.textContent = status;
+  el.className = 'run-status';
+  if (['running'].includes(status)) el.classList.add('running');
+  else if (['done'].includes(status)) el.classList.add('done');
+  else if (['error', 'stopped'].includes(status)) el.classList.add('error');
+}
+
+function appendLog(text) {
+  const viewer = document.getElementById('logViewer');
+  if (viewer.querySelector('span[style]')) viewer.innerHTML = '';
+  viewer.textContent += text;
+  viewer.scrollTop = viewer.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('logViewer').textContent = '';
+}
+
+// ─── Output browser ────────────────────────────────────────────────────────────
+
+let _selectedOutputPath = null;
+let _currentPage = 0;
+let _totalRecords = 0;
+const PAGE_SIZE = 5;
+
+async function loadOutputsList() {
+  try {
+    const r = await fetch('/api/outputs');
+    if (!r.ok) return;
+    const { files } = await r.json();
+    const list = document.getElementById('fileList');
+    if (files.length === 0) {
+      list.innerHTML = '<div class="empty-state">No output files found.<br>Run the pipeline to generate data.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    files.forEach(f => {
+      const row = document.createElement('div');
+      row.className = 'file-row';
+      if (f.path === _selectedOutputPath) row.classList.add('active');
+      row.innerHTML = `
+        <span class="file-name">${escapeHtml(f.name)}</span>
+        <span class="file-meta">${f.count} records · ${formatBytes(f.size)}</span>
+      `;
+      row.onclick = () => selectOutputFile(f.path, row);
+      list.appendChild(row);
+    });
+  } catch {}
+}
+
+function selectOutputFile(path, rowEl) {
+  _selectedOutputPath = path;
+  _currentPage = 0;
+  document.querySelectorAll('.file-row').forEach(r => r.classList.remove('active'));
+  rowEl.classList.add('active');
+  loadRecordsPage();
+}
+
+async function loadRecordsPage() {
+  if (!_selectedOutputPath) return;
+  try {
+    const r = await fetch(`/api/output?path=${encodeURIComponent(_selectedOutputPath)}&page=${_currentPage}&page_size=${PAGE_SIZE}`);
+    if (!r.ok) return;
+    const { total, page, records } = await r.json();
+    _totalRecords = total;
+    _currentPage = page;
+    renderRecords(records, total, page);
+  } catch {}
+}
+
+function renderRecords(records, total, page) {
+  const panel = document.getElementById('recordsPanel');
+  const pgn   = document.getElementById('pagination');
+  const pgInfo = document.getElementById('pageInfo');
+
+  if (records.length === 0) {
+    panel.innerHTML = '<div class="empty-state">No records found.</div>';
+    pgn.style.display = 'none';
+    return;
+  }
+
+  pgn.style.display = 'flex';
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  pgInfo.textContent = `${page + 1} / ${totalPages} (${total} total)`;
+  document.getElementById('prevBtn').disabled = page === 0;
+  document.getElementById('nextBtn').disabled = page >= totalPages - 1;
+
+  panel.innerHTML = '';
+  records.forEach(rec => {
+    const card = document.createElement('div');
+    card.className = 'record-card';
+    card.innerHTML = `
+      <div class="record-id">${escapeHtml(rec.id ?? '—')}</div>
+      <div class="record-meta">
+        <span>depth: ${rec.depth ?? '—'}</span>
+        <span>source: ${rec.source ?? '—'}</span>
+        <span>status: ${rec.quality_status ?? '—'}</span>
+      </div>
+      <div>
+        <div class="record-field-label">source_question</div>
+        <div class="record-field-value">${escapeHtml(rec.source_question ?? '')}</div>
+      </div>
+      <div>
+        <div class="record-field-label">removed_span</div>
+        <div class="record-field-value removed">${escapeHtml(rec.removed_span ?? '')}</div>
+      </div>
+      <div>
+        <div class="record-field-label">input_x (prefix)</div>
+        <div class="record-field-value">${escapeHtml(rec.input_x ?? '')}</div>
+      </div>
+      <div>
+        <div class="record-field-label">target_y (next step)</div>
+        <div class="record-field-value target">${escapeHtml(rec.target_y ?? '')}</div>
+      </div>
+      <div>
+        <div class="record-field-label">decision_explanation</div>
+        <div class="record-field-value" style="color:var(--muted)">${escapeHtml(rec.decision_explanation ?? '')}</div>
+      </div>
+    `;
+    panel.appendChild(card);
+  });
+}
+
+function prevPage() { if (_currentPage > 0) { _currentPage--; loadRecordsPage(); } }
+function nextPage() { if (_currentPage < Math.ceil(_totalRecords / PAGE_SIZE) - 1) { _currentPage++; loadRecordsPage(); } }
+
+// ─── Utility helpers ──────────────────────────────────────────────────────────
+
+function setValue(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.tagName === 'SELECT') {
+    // Try to find matching option
+    const opt = [...el.options].find(o => o.value === String(val));
+    if (opt) el.value = String(val);
+  } else {
+    el.value = val ?? '';
+  }
+}
+
+function str(id)  { return (document.getElementById(id)?.value ?? '').trim(); }
+function num(id)  { const v = str(id); return v === '' ? null : parseInt(v, 10); }
+function numF(id) { const v = str(id); return v === '' ? null : parseFloat(v); }
+
+function formatBytes(b) {
+  if (b < 1024) return `${b} B`;
+  if (b < 1048576) return `${(b/1024).toFixed(1)} KB`;
+  return `${(b/1048576).toFixed(1)} MB`;
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Playground data ──────────────────────────────────────────────────────────
+
+const SEED_TASKS = [
+  { id: "seed-arithmetic-1", prompt: "If a train travels 45 miles in 1.5 hours, what is its average speed in miles per hour?", output: "Let's solve this step by step. This is a reasoning problem, so I will be careful. Speed equals distance divided by time, which is a key relationship. Distance is 45 miles and time is 1.5 hours. So speed = 45 / 1.5 = 30. This is a reasoning problem, so I will be careful. Final answer: 30.", kind: "arithmetic" },
+  { id: "seed-word-1",       prompt: "Maya has 12 marbles. She gives 3 to Leo and buys 8 more. How many marbles does she have now?", output: "Let's solve this step by step. This is a reasoning problem, so I will be careful. Maya starts with 12 marbles. She gives away 3, so 12 - 3 = 9. Then she buys 8 more, so 9 + 8 = 17. This is a reasoning problem, so I will be careful. Final answer: 17.", kind: "word_problem" },
+  { id: "seed-logic-1",      prompt: "All bloops are razzies. All razzies are lazzies. Is every bloop definitely a lazzie?", output: "Let's solve this step by step. This is a reasoning problem, so I will be careful. The first premise states all bloops are razzies. The second premise states all razzies are lazzies. By transitivity, all bloops are lazzies. So yes, every bloop is definitely a lazzie. This is a reasoning problem, so I will be careful. Final answer: yes.", kind: "logic" },
+  { id: "seed-arithmetic-2", prompt: "A recipe uses 2 cups of flour for 8 cookies. How many cups are needed for 20 cookies?", output: "Let's solve this step by step. This is a reasoning problem, so I will be careful. First, I will find the ratio of flour to cookies. 2 cups / 8 cookies = 0.25 cups per cookie. For 20 cookies: 20 × 0.25 = 5 cups. This is a reasoning problem, so I will be careful. Final answer: 5.", kind: "ratio" },
+  { id: "seed-word-2",       prompt: "There are 24 students split equally into 4 teams. Two students leave each team. How many students remain total?", output: "Let's solve this step by step. This is a reasoning problem, so I will be careful. 24 students divided into 4 teams means 6 students per team. Two students leave each team, so each team has 6 - 2 = 4 students remaining. With 4 teams: 4 × 4 = 16. This is a reasoning problem, so I will be careful. Final answer: 16.", kind: "word_problem" },
+  { id: "seed-logic-2",      prompt: "If the red box is heavier than the blue box and the blue box is heavier than the green box, which box is lightest?", output: "Let's solve this step by step. This is a reasoning problem, so I will be careful. Red > Blue > Green is the ordering from heaviest to lightest. The lightest is therefore the green box. This is a reasoning problem, so I will be careful. Final answer: green.", kind: "logic" },
+];
+
+const PRESETS = [
+  { name: "Conservative", template: `Choose only redundant reasoning units that can be removed without changing the final answer. Remove filler phrases and exact repetitions only.\nReturn strict JSON only: {"remove_unit_ids": ["u000"], "rationale": "..."}.\nUnits:\n{units}` },
+  { name: "Aggressive",   template: `Remove all units that are not strictly necessary to arrive at the correct final answer. Keep only the core reasoning chain and the final answer.\nReturn strict JSON only: {"remove_unit_ids": ["u000", "u001"], "rationale": "..."}.\nUnits:\n{units}` },
+  { name: "Step-by-step", template: `Analyze each unit individually. For each unit, decide: is it adding new information toward the final answer, or is it a filler, repetition, or hedge?\nOnly mark units as removable if removing them does not break the logical chain.\nReturn strict JSON only: {"remove_unit_ids": ["u001"], "rationale": "..."}.\nUnits:\n{units}` },
+  { name: "Rationale-first", template: `You are an expert at identifying redundant reasoning. First, identify the core reasoning chain needed to produce the final answer. Then identify which units are outside that core chain.\nRemove only units that are definitely outside the core.\nReturn strict JSON only: {"remove_unit_ids": ["u000", "u001"], "rationale": "Detailed explanation of what was removed and why."}.\nUnits:\n{units}` },
+  { name: "CoT-aware",    template: `You are reviewing a chain-of-thought reasoning sequence. Your goal is to shorten it while preserving all genuine reasoning steps.\nSafe to remove: repeated phrases, meta-commentary about the task, redundant hedges.\nKeep: every unique reasoning step, calculations, and the final answer.\nReturn strict JSON only: {"remove_unit_ids": [], "rationale": "..."}.\nUnits:\n{units}` },
+];
+
+// ─── Playground state & logic ─────────────────────────────────────────────────
+
+const pgState = {
+  taskIndex: 0,
+  customPromptText: "",
+  modelOutput: "",
+  promptTemplate: PRESETS[0].template,
+  activePreset: 0,
+  llmResponse: "",
+  units: [],
+  manualOverrides: {},
+  parsedRemoveIds: [],
+  rationale: "",
+  parseError: ""
+};
+
+function pgInit() {
+  buildPresetButtons();
+  loadTask(0);
+}
+
+function buildPresetButtons() {
+  const container = document.getElementById("presetBtns");
+  PRESETS.forEach((p, i) => {
+    const btn = document.createElement("button");
+    btn.textContent = p.name;
+    btn.id = `preset-${i}`;
+    if (i === 0) btn.classList.add("active");
+    btn.onclick = () => selectPreset(i);
+    container.appendChild(btn);
+  });
+}
+
+function onTaskChange() {
+  const val = document.getElementById("taskSelect").value;
+  const customWrap = document.getElementById("customPromptWrap");
+  if (val === "custom") {
+    customWrap.style.display = "block";
+    pgState.taskIndex = "custom";
+    onCustomInput();
+  } else {
+    customWrap.style.display = "none";
+    loadTask(parseInt(val));
+  }
+}
+
+function loadTask(index) {
+  pgState.taskIndex = index;
+  const task = SEED_TASKS[index];
+  pgState.modelOutput = task.output;
+  pgState.manualOverrides = {};
+  document.getElementById("modelOutput").value = task.output;
+  segmentAndRender();
+}
+
+function onCustomInput() {
+  pgState.customPromptText = document.getElementById("customTaskPrompt").value;
+  pgState.modelOutput = document.getElementById("modelOutput").value;
+  pgState.manualOverrides = {};
+  segmentAndRender();
+}
+
+function onOutputChange() {
+  pgState.modelOutput = document.getElementById("modelOutput").value;
+  pgState.manualOverrides = {};
+  segmentAndRender();
+}
+
+function segmentText(text) {
+  const parts = text.match(/[^.!?\n]+[.!?]?(?:\s|$)/g) || [];
+  return parts.map(s => s.trim()).filter(s => s.length > 2).map((txt, index) => ({
+    id: `u${String(index).padStart(3, "0")}`,
+    index,
+    text: txt
+  }));
+}
+
+function segmentAndRender() {
+  pgState.units = segmentText(pgState.modelOutput);
+  pgState.parsedRemoveIds = [];
+  pgState.rationale = "";
+  pgState.parseError = "";
+  document.getElementById("llmResponse").value = "";
+  renderUnits();
+  renderPrompt();
+  clearResults();
+}
+
+function renderUnits() {
+  const container = document.getElementById("unitsList");
+  const countEl   = document.getElementById("unitCount");
+  container.innerHTML = "";
+  countEl.textContent = `${pgState.units.length} units`;
+  const effectiveRemoved = getEffectiveRemovedIds();
+  pgState.units.forEach(unit => {
+    const row = document.createElement("div");
+    row.className = "unit-row " + (effectiveRemoved.has(unit.id) ? "removed" : "kept");
+    row.innerHTML = `<span class="unit-id">${unit.id}</span><span class="unit-text">${escapeHtml(unit.text)}</span>`;
+    row.onclick = () => toggleManualOverride(unit.id);
+    container.appendChild(row);
+  });
+}
+
+function toggleManualOverride(id) {
+  const effectiveRemoved = getEffectiveRemovedIds();
+  pgState.manualOverrides[id] = !effectiveRemoved.has(id);
+  renderUnits();
+  renderResults();
+}
+
+function getEffectiveRemovedIds() {
+  const base = new Set(pgState.parsedRemoveIds);
+  Object.entries(pgState.manualOverrides).forEach(([id, shouldRemove]) => {
+    if (shouldRemove) base.add(id); else base.delete(id);
+  });
+  return base;
+}
+
+function onTemplateChange() {
+  pgState.promptTemplate = document.getElementById("promptTemplate").value;
+  PRESETS.forEach((_, i) => document.getElementById(`preset-${i}`).classList.remove("active"));
+  pgState.activePreset = -1;
+  renderPrompt();
+}
+
+function selectPreset(i) {
+  pgState.activePreset = i;
+  pgState.promptTemplate = PRESETS[i].template;
+  document.getElementById("promptTemplate").value = PRESETS[i].template;
+  PRESETS.forEach((_, j) => document.getElementById(`preset-${j}`).classList.toggle("active", j === i));
+  renderPrompt();
+}
+
+function buildUnitsBlock() { return pgState.units.map(u => `${u.id}: ${u.text}`).join("\n"); }
+function buildRenderedPrompt() { return pgState.promptTemplate.replace("{units}", buildUnitsBlock()); }
+
+function renderPrompt() {
+  const rendered = buildRenderedPrompt();
+  document.getElementById("renderedPrompt").textContent = rendered;
+  const chars = rendered.length;
+  document.getElementById("renderedCharCount").textContent = `~${Math.round(chars / 4)} tokens · ${chars} chars`;
+  document.getElementById("templateCharCount").textContent = `${pgState.promptTemplate.length} chars`;
+}
+
+function onResponseChange() {
+  const raw = document.getElementById("llmResponse").value.trim();
+  pgState.llmResponse = raw;
+  const errEl = document.getElementById("parseError");
+  if (!raw) {
+    pgState.parsedRemoveIds = []; pgState.rationale = ""; pgState.parseError = "";
+    errEl.style.display = "none"; pgState.manualOverrides = {};
+    renderUnits(); clearResults(); return;
+  }
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) { showParseError(errEl, "No JSON object found in response."); return; }
+  let parsed;
+  try { parsed = JSON.parse(jsonMatch[0]); } catch (e) { showParseError(errEl, "JSON parse error: " + e.message); return; }
+  const ids = parsed.remove_unit_ids;
+  const validIds = new Set(pgState.units.map(u => u.id));
+  if (!Array.isArray(ids)) { showParseError(errEl, '"remove_unit_ids" must be an array.'); return; }
+  const invalid = ids.filter(id => !validIds.has(id));
+  if (invalid.length) { showParseError(errEl, `Unknown unit IDs: ${invalid.join(", ")}`); return; }
+  errEl.style.display = "none";
+  pgState.parseError = "";
+  pgState.parsedRemoveIds = ids;
+  pgState.rationale = typeof parsed.rationale === "string" ? parsed.rationale : "";
+  pgState.manualOverrides = {};
+  renderUnits(); renderResults();
+}
+
+function showParseError(el, msg) {
+  pgState.parseError = msg;
+  el.textContent = "⚠ " + msg;
+  el.style.display = "block";
+}
+
+function clearResults() {
+  ["rationaleWrap","statsWrap","checksWrap","diffWrap","prunedWrap"].forEach(id => {
+    document.getElementById(id).style.display = "none";
+  });
+}
+
+function renderResults() {
+  const effectiveRemoved = getEffectiveRemovedIds();
+  const allIds = pgState.units.map(u => u.id);
+  const removedArr = allIds.filter(id => effectiveRemoved.has(id));
+  const keptUnits  = pgState.units.filter(u => !effectiveRemoved.has(u.id));
+  const pruned     = keptUnits.map(u => u.text).join(" ");
+
+  if (pgState.rationale) {
+    document.getElementById("rationaleWrap").style.display = "block";
+    document.getElementById("rationaleBox").textContent = pgState.rationale;
+  } else {
+    document.getElementById("rationaleWrap").style.display = "none";
+  }
+
+  const origLen = pgState.modelOutput.trim().length;
+  const prunedLen = pruned.length;
+  const pct = origLen > 0 ? Math.round(((origLen - prunedLen) / origLen) * 100) : 0;
+  document.getElementById("statsWrap").style.display = "block";
+  document.getElementById("origTokens").textContent = `${Math.round(origLen / 4)} tok`;
+  document.getElementById("prunedTokens").textContent = `${Math.round(prunedLen / 4)} tok`;
+  document.getElementById("removedPct").textContent = `${pct}%`;
+  document.getElementById("reductionBar").style.width = `${Math.min(pct, 100)}%`;
+
+  const checks = runVerification(pgState.modelOutput, pruned, pgState.units, removedArr);
+  document.getElementById("checksWrap").style.display = "block";
+  renderChecks(checks);
+
+  document.getElementById("diffWrap").style.display = "block";
+  document.getElementById("diffBox").innerHTML = pgState.units.map(u => {
+    if (effectiveRemoved.has(u.id)) return `<span class="removed-span" title="${u.id}">${escapeHtml(u.text)}</span>`;
+    return `<span class="kept-span" title="${u.id}">${escapeHtml(u.text)}</span>`;
+  }).join(' <span class="sep">·</span> ');
+
+  document.getElementById("prunedWrap").style.display = "block";
+  document.getElementById("prunedBox").textContent = pruned;
+}
+
+function runVerification(original, pruned, units, removedIds) {
+  const finalAnswerMatch = original.match(/final answer[:\s]+(.+?)\.?\s*$/i);
+  const finalAnswerPreserved = finalAnswerMatch
+    ? pruned.toLowerCase().includes(finalAnswerMatch[0].toLowerCase().substring(0, 20))
+    : true;
+  return {
+    non_empty: pruned.trim().length > 0,
+    shorter: pruned.length < original.length,
+    removed_some_not_all: removedIds.length > 0 && removedIds.length < units.length,
+    final_answer_preserved: finalAnswerPreserved,
+    has_no_obvious_incoherence: !["REMOVED", "undefined", "null", "[object"].some(p => pruned.includes(p)),
+  };
+}
+
+function renderChecks(checks) {
+  const container = document.getElementById("checksList");
+  container.innerHTML = "";
+  const labels = {
+    non_empty: "Pruned output is non-empty",
+    shorter: "Pruned is shorter than original",
+    removed_some_not_all: "Removed some but not all units",
+    final_answer_preserved: "Final answer preserved",
+    has_no_obvious_incoherence: "No obvious incoherence markers",
+  };
+  Object.entries(checks).forEach(([key, ok]) => {
+    const row = document.createElement("div");
+    row.className = "check-row";
+    row.innerHTML = `
+      <span class="check-icon ${ok ? "check-pass" : "check-fail"}">${ok ? "✓" : "✗"}</span>
+      <span class="${ok ? "check-pass" : "check-fail"}" style="font-family:var(--mono);font-size:11px">${key}</span>
+      <span style="color:var(--muted)">${labels[key]}</span>
+    `;
+    container.appendChild(row);
+  });
+  const allPassed = Object.values(checks).every(Boolean);
+  const summary = document.createElement("div");
+  summary.className = "check-row";
+  summary.style.marginTop = "6px"; summary.style.paddingTop = "6px";
+  summary.style.borderTop = "1px solid var(--border)";
+  summary.innerHTML = `
+    <span class="check-icon ${allPassed ? "check-pass" : "check-fail"}">${allPassed ? "✓" : "✗"}</span>
+    <strong style="color:${allPassed ? "var(--green)" : "var(--red)"}">${allPassed ? "ACCEPTED" : "REJECTED"}</strong>
+    <span style="color:var(--muted)">${allPassed ? "Example passes all quality gates" : "Example would be rejected"}</span>
+  `;
+  container.appendChild(summary);
+}
+
+function copyPrompt() {
+  const rendered = buildRenderedPrompt();
+  navigator.clipboard.writeText(rendered).then(() => {
+    const btn = document.getElementById("copyBtn");
+    btn.textContent = "Copied!"; btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1800);
+  });
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+
+document.getElementById("promptTemplate").value = PRESETS[0].template;
+pgInit();
+checkServer().then(ok => {
+  if (ok) loadConfigList();
+});
+</script>
+</body>
+</html>

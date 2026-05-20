@@ -1,0 +1,104 @@
+[run]
+run_name = "bbh-logical-deduction-baseline"
+format_version = "1.0"
+random_seed = 1
+
+[source]
+source = "hf"
+limit = 10
+hf_dataset = "lukaemon/bbh"
+hf_config = "logical_deduction_five_objects"
+hf_split = "test"
+hf_text_field = "input"
+answer_fields = ["target"]
+
+[output]
+# Temporary local generation paths only. Copy reviewed releases into the private
+# Hugging Face dataset repo checked out under ../sentence-pruning-datasets.
+accepted_path = "outputs/datasets/bbh_logical_deduction_baseline.jsonl"
+rejected_path = "outputs/datasets/bbh_logical_deduction_baseline.rejected.jsonl"
+hf_upload_repo = ""
+hf_upload_path = ""
+hf_private = false
+
+[generation]
+provider = "gemini"
+model = "gemini/gemini-2.5-flash-lite"
+base_url = ""
+temperature = 0.2
+max_tokens = 1200
+timeout = 120
+retries = 1
+
+[decision]
+provider = "gemini"
+model = "gemini/gemini-2.5-flash-lite"
+base_url = ""
+temperature = 0.0
+max_tokens = 600
+timeout = 120
+retries = 1
+
+[iteration]
+max_depth = 1
+min_generated_units = 3
+max_removable_span_length = 2
+stop_statuses = ["no_prune", "stop"]
+
+[quality]
+require_final_answer_preservation = false
+reject_obvious_incoherence = true
+
+[prompts]
+generation_system = """
+You generate concise but complete reasoning for sentence-pruning data creation.
+Solve the task clearly in ordered reasoning sentences and include a final answer when appropriate.
+"""
+
+generation_user_template = """
+Task:
+{task_prompt}
+{answer_hint}
+
+Write the reasoning as short sentences or numbered steps. Avoid filler, but include enough reasoning that a pruning decision can be evaluated.
+"""
+
+continuation_user_template = """
+Original task:
+{task_prompt}
+{answer_hint}
+
+Current already-pruned context:
+{current_context}
+
+Continue the reasoning from this context. Produce the next concise reasoning steps only; do not repeat the context unless necessary.
+"""
+
+decision_system = """
+You are the pruning decision model. Return strict JSON only.
+Choose the first safely removable contiguous reasoning unit or short span, not the best span later in the answer.
+If no safe first removable span exists, return no_prune. If the reasoning should stop, return stop.
+"""
+
+decision_user_template = """
+Original task:
+{task_prompt}
+{answer_hint}
+
+Current context before this generation:
+{current_context}
+
+Full generation to inspect:
+{generation}
+
+Ordered units:
+{unit_lines}
+
+Find the FIRST safely removable contiguous span, with length at most {max_span_length}, where a kept next unit exists after the span.
+The removed span must be redundant and skipping it must not damage correctness or coherence.
+
+Return exactly one JSON object:
+{{"status":"remove","remove_unit_ids":["u001"],"rationale":"why this first span is safe"}}
+or {{"status":"no_prune","remove_unit_ids":[],"rationale":"why nothing is safe"}}
+or {{"status":"stop","remove_unit_ids":[],"rationale":"why to stop"}}.
+"""

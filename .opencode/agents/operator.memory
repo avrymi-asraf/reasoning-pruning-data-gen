@@ -1,0 +1,94 @@
+# Operator Memory — fine-tuning-skills
+
+## Short-Term Activity Log
+
+**2026-05-19** — Switched active source sample from SVAMP to BBH logical deduction. Removed `outputs/sources/svamp_sample.jsonl`, downloaded 20 full rows from `lukaemon/bbh` config `logical_deduction_five_objects` split `test[:20]` to `outputs/sources/bbh_logical_deduction_five_objects_sample.jsonl` with `uv run --extra hf`, and validated 20 rows with nonempty `input` plus present/nonempty `target`. Verified `config/bbh-logical-deduction.toml` source values and empty upload target; no generation, upload, commits, or secret inspection.
+
+**2026-05-19** — Cleaned stale generated artifacts from `outputs/`: removed POC outputs, old dataset accepted/rejected/manifest files, and outdated source samples; preserved only `outputs/sources/svamp_sample.jsonl`. Verified final tree has empty `outputs/datasets/` plus the SVAMP source sample, and validated 20 JSONL rows with nonempty `question_concat`. No generation, upload, secrets, source/config/docs/tests touched.
+
+**2026-05-19** — Downloaded a 20-row source-only SVAMP sample from `ChilleD/SVAMP` train with `uv run --extra hf` to `outputs/sources/svamp_sample.jsonl`; verified 20 valid JSONL rows, nonempty `question_concat`, answer fields `Answer` and `Equation`, and `config/svamp.toml` baseline source/output settings. No generation, upload, secret inspection, or commits.
+
+**2026-05-18** — Final SVAMP live refresh completed after answer metadata preservation. Ran `uv run --extra hf python scripts/create_pruning_dataset.py --config config/svamp.toml`; outputs now contain 4 accepted / 1 rejected, all accepted rows preserve answer metadata, validation passed field/model/source/quality/secret-pattern checks.
+
+**2026-05-18** — Operational smoke completed. `config/default.toml` seed run with Gemini Flash Lite wrote 0 accepted / 1 rejected (`no_next_kept_unit`) under `outputs/datasets/`; added `config/svamp.toml` and ran `uv run --extra hf` on `ChilleD/SVAMP` train (`question_concat`) writing 2 accepted / 3 rejected to `outputs/datasets/svamp.jsonl`. Validation confirmed accepted quality status, depth 1, nonempty `input_x`/`target_y`/`removed_span`, and no old primary schema.
+
+**2026-05-18** — Rebuilt `outputs/poc/svamp_gemma4_gemini_flash_lite.jsonl` from `ChilleD/SVAMP` with `uv run --extra hf`, Gemma 4 generation, and Gemini Flash Lite decisions. The temp run accepted 18 / rejected 2, passed JSONL schema checks without dumping contents, and replaced the prior 1-row file.
+
+**2026-05-18** — Cleaned generated POC artifacts after final SVAMP deliverable. Removed project pytest/Python caches, HF cache/sample outputs, and obsolete mock/smoke POC JSONLs; preserved `outputs/poc/svamp_gemma4_gemini_flash_lite.jsonl`, source, docs, configs, tests, `.env`, opencode files, and memory files.
+
+**2026-05-18** — Stage 3 POC pruning example created. Ran `uv run --extra hf` on `ChilleD/SVAMP` train using `question_concat`, generation model `gemini/gemma-4-31b-it`, and decision model `gemini/gemini-2.5-flash-lite`; limit 1 wrote 1 accepted / 0 rejected to `outputs/poc/svamp_gemma4_gemini_flash_lite.jsonl` and verified one JSONL row. No secrets or env files inspected.
+
+**2026-05-18** — Stage 2 HF dataset samples completed. Used `uv run --extra hf` with streaming and cache under `outputs/hf_cache/` to write 5-row JSONL samples for `ChilleD/SVAMP` train (`question_concat`, `Answer`, `Equation`), `openai/gsm8k` main train (`question`, `answer`), and `lukaemon/bbh` multistep_arithmetic_two test (`input`, `target`) under ignored `outputs/hf_samples/stage2/`; verified each file has 5 nonempty prompts. No secrets or env files inspected.
+
+**2026-04-26** — Data-Wiki Step 6 ingest for project-local agent system docs. Added wiki source/concept/entity pages covering README, docs example, and `skills/project-local-agent-systems/SKILL.md`; recorded project/workspace-local-only rule, verified OpenCode/VS Code-Copilot/Codex paths, secret-safety caveats, unverified `.opencode/agents/*.memory`, and `.codex` file-vs-directory conflict. No secrets copied.
+
+**2026-04-26** — Completed Step 5 for PDF-to-Markdown MCP. Ran focused tests with `uv run --with pytest --with 'mcp[cli]>=1.2.0' --with 'httpx>=0.27.0' --with 'pymupdf>=1.24.0' pytest 'skills/pdf-to-markdown-mcp/tests/test_mcp_server.py'`; initial failures showed `_normalize_equations` split compact display equations. Fixed normalization to preserve `$$...$$` contents, re-ran focused suite (6 passed), and verified syntax with `python3 -m py_compile skills/pdf-to-markdown-mcp/mcp-server.py`. Updated manager memory; no MCP server was started.
+
+**2026-04-26** — Implemented Step 4 for PDF-to-Markdown MCP. Created `skills/pdf-to-markdown-mcp/mcp-server.py`, `SKILL.md`, and mocked tests that generate tiny PDFs dynamically. Server is a PEP 723 `uv`/FastMCP script with Google/Ollama provider calls, PyMuPDF extraction/rendering, strict equation/table prompt contract, post-processing, completeness-check support, and JSON/Error string returns. Only syntax sanity was run with `python3 -m py_compile`; formal tests remain Step 5.
+
+**2026-04-18** — Built and validated Gemma 4 training container locally. Fixed critical Dockerfile bug: uv installs Python to `/opt/python` which must be copied to runtime stage (was missing, causing "python not found"). Pushed updated image to Artifact Registry. Created Vertex AI job config. Local training test confirmed RTX 4060 (8GB) cannot fit Gemma 4 even in 4-bit — needs cloud GPU.
+
+**2026-04-18** — Answered user's question about most accessible GPUs on GCP. Summarized L4/T4/A100/H100 accessibility, costs, and quota paths. Memory file restructured per agent-and-skill-improvement skill.
+
+**2026-04-16** — Ingested web research into `data-place/wiki/`: Gemma 4 model family (source + entity pages) and competitor landscape (Phi-4, Qwen3, Llama 4, Mistral, DeepSeek).
+
+**2026-04-15** — Fixed `gemma4-e2b-finetuning/configs/vertex_job.yaml`: removed empty `HF_TOKEN` env var that caused Vertex AI validation error. Changes remain unstaged.
+
+## Long-Term Knowledge Base
+
+### Project: gemma4-e2b-finetuning
+
+**Goal:** Fine-tune `google/gemma-4-E2B-it` with QLoRA on Vertex AI.
+
+**Current Phase:** Blocked. Vertex AI `custom_model_training_nvidia_l4_gpus` quota = 0. Compute Engine `NVIDIA_L4_GPUS` quota = 1.
+
+**What Works:**
+- Local training: `uv run python train_hf_peft.py --dataset_path data/formatted_dataset`
+- Dataset prepared and uploaded to `gs://gamma4-fine-tuning-gemma4-e2b/datasets/gemma4-e2b-v1/`
+- Container built and pushed: `us-central1-docker.pkg.dev/gamma4-fine-tuning/ml-containers/gemma4-train:v1.0.0`
+- Task automation via `tasks.py` (Invoke)
+- Configs: `configs/hf_qlora.yaml` (training), `configs/vertex_job.yaml` (Vertex AI — empty HF_TOKEN removed)
+
+**Stack:** `torch==2.5.1`, `trl`, `peft`, `transformers`, `datasets`, `accelerate`, `bitsandbytes`. Package manager: `uv`.
+
+**Critical Fix Applied:**
+- Dockerfile was missing `COPY --from=builder /opt/python /opt/python` — uv installs Python outside the venv. Without this, runtime stage has no `python` binary. Also need `PATH` to include `/opt/python/cpython-X.Y.Z-linux-x86_64-gnu/bin`.
+
+**Local GPU Limitation:**
+- RTX 4060 Laptop (8GB VRAM) cannot train Gemma 4 even with QLoRA. Model loading fails with "Some modules dispatched on CPU/disk". Cloud GPU required.
+
+**Paths to Unblock:**
+1. Submit Vertex AI job with H100 (config ready at `gemma4-e2b-vertex-job.yaml`)
+2. Upload dataset to GCS if not already there: `gs://gamma4-fine-tuning-datasets/formatted_dataset`
+3. Ensure HF_TOKEN is set via Secret Manager or env var for Vertex AI
+
+**Vertex AI Job Config:**
+- Machine: `a3-highgpu-1g` (1× H100 80GB)
+- Spot VMs: enabled (~$1.50/hr)
+- Image: `us-central1-docker.pkg.dev/gamma4-fine-tuning/ml-containers/gemma4-train:v1.0.0`
+- Config: `gemma4-e2b-vertex-job.yaml`
+
+**External Context:**
+- GCP project: `gamma4-fine-tuning`
+- Region: `us-central1`
+- GCS bucket: `gs://gamma4-fine-tuning-gemma4-e2b`
+
+### Repository Structure
+
+- `gemma4-e2b-finetuning/` — Active experiment (scripts, Dockerfile, configs, task runner)
+- `vertex-test-deploy/` — Earlier Vertex AI container test
+- `cloud-infrastructure-setup/`, `cloud-job-orchestration/`, `container-engineering/`, `cloud-storage-artifacts/`, `ml-training-pipeline/` — Reusable skills
+- `data-place/wiki/` — Research knowledge base (11 sources, 7 concepts, 1 entity, SQLite FTS)
+- Project-local agent system docs: use only project/workspace-local setup, never user/global settings. Source skills live at `skills/<skill>/SKILL.md`; platform-native paths differ and should be activated only with explicit approval.
+
+### User Preferences
+
+- **"Status" means training readiness**, not git state. Lead with phase, blockers, next step.
+- **Skills must be used** — external skills in `/home/avreymi/code/dotfiles/skills/` take priority.
+- **Never commit unless explicitly asked.**
+
+### Stale / Known Issues
+
+- `gemma4-e2b-finetuning/state/status.md` references deleted Unsloth files — needs cleanup.
+- Dockerfile fix (COPY /opt/python) should be propagated to template files in `container-engineering/scripts/`.
+- Unstaged changes exist in `configs/vertex_job.yaml` and `data-place/wiki/` files.

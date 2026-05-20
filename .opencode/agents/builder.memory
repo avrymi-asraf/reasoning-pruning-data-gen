@@ -1,0 +1,33 @@
+# Builder Memory
+
+## Log
+
+<!-- One line per durable implementation event. Most recent first. -->
+
+- 2026-05-19: Added `config/bbh-logical-deduction.toml` for the selected `lukaemon/bbh` logical deduction baseline and documented that final dataset/checkpoint repos live under adjacent private HF clones.
+- 2026-05-19: Cleaned current-facing repo framing away from smoke/POC/rebuild history: docs now present the config-driven R&D pipeline, defaults use `seed_dev` and `svamp_baseline`, and stale historical docs were removed.
+- 2026-05-18: Added explicit `--upload-to-hf` release gate, local per-run manifests, no-network upload-gate tests, docs/skill updates, and a successful no-upload SVAMP limit-1 smoke at `outputs/datasets/hf_upload_gate_smoke.jsonl`.
+- 2026-05-18: Cleaned current-facing docs, skills, and tests to describe the active config-driven local transition sentence-pruning workflow directly; planning/history language belongs only in `docs/r1-rebuild-plan.md`.
+- 2026-05-18: Removed operational branch-algorithm naming: config files are generic (`config/default.toml`, dataset configs), output data lives under `outputs/datasets/` and `outputs/sources/`, records use `format_version`, and code/docs/skills use transparent sentence-pruning names.
+- 2026-05-18: Final cleanup after review: documented live seed/SVAMP smoke status, preserved configured small HF answer metadata fields, and added sanitized exception diagnostics to reject audit records; tests/help pass.
+- 2026-05-18: Cleaned the runner for R&D readability: CLI now only exposes `--config`, `--output`, `--limit`; removed legacy prompt config, historical POC plan docs, unused quality toggles, and old schema/helper wording; tests/help pass.
+- 2026-05-18: Rebuilt Data runner around first-removable-contiguous-span validation, `input_x`/`target_y` schema, iterative depth, rejected audit JSONL, docs/skills, and no-network tests.
+- 2026-05-18: Documented successful HF SVAMP smoke run using Gemma 4 generation and Gemini Flash Lite decisions; accepted 1 and rejected 0, with outputs under gitignored `outputs/`.
+- 2026-05-18: Fixed final-answer verification so decimal answers like `2.5` no longer normalize to `2`; cleaned stale one-file POC docs to point at the balanced layout.
+- 2026-05-18: Rebalanced the Data POC into `config/prompts.toml`, CLI wrapper, `llm_client.py`, `pruning_flow.py`, and `storage.py`; added provider/base-url flags, prompt metadata, optional HF upload, and no-network flow tests. Live Gemini limit-1 smoke wrote `outputs/poc/gemini_flash_lite_balanced.jsonl`.
+- 2026-05-18: Cleaned up stale package/CLI references after the simplification review; `uv sync --extra dev` removed the old local `.venv/bin/sentence-pruning-data-poc` entrypoint.
+- 2026-05-18: Simplified the Data POC from a package/CLI into one operational script: `uv run python scripts/create_pruning_dataset.py --source seed --limit 1 --output outputs/poc/gemini_flash_lite.jsonl`.
+- 2026-05-18: Removed user-facing mock POC runs; CLI now requires LiteLLM with Gemini Flash Lite default (`gemini/gemini-2.5-flash-lite`), loads `.env` safely, rejects malformed/failed pruning decisions, and unit tests mock only the Python LiteLLM call.
+- 2026-05-17: Implemented initial Data POC package/CLI with seed tasks, generation, segmentation, conservative pruning/verification, JSONL output, tests, docs, and optional Hugging Face skills.
+
+## Structured Knowledge
+
+<!-- Stable build, edit, test, and project-convention notes. -->
+
+- Use `uv run --extra dev python -m pytest` in this workspace; system `python` is missing and `python3` has no pip/pytest.
+- Current layout is config-driven: edit source/output/models/prompts in `config/default.toml` or a dataset config; run seed/dev via `uv run python scripts/create_pruning_dataset.py --config config/default.toml`, run SVAMP via `uv run --extra hf python scripts/create_pruning_dataset.py --config config/svamp.toml`, and use `--upload-to-hf` only as the explicit Hub release gate. Logic lives in `scripts/llm_client.py`, `scripts/pruning_flow.py`, and `scripts/storage.py`.
+- Accepted JSONL must use local transition fields (`input_x`, `target_y`, `removed_span`, `full_generation_before_pruning`, `pruned_context_after_decision`, `depth>=1`, `format_version`); keep current-facing docs and tests focused on this active data shape.
+- Suitable HF dataset sources include the selected optimized-data baseline `lukaemon/bbh` config `logical_deduction_five_objects` field `input` split `test` with `answer_fields = ["target"]`, plus `ChilleD/SVAMP` field `question_concat` split `train`, `openai/gsm8k` config `main` field `question` split `train`, and `lukaemon/bbh` config `multistep_arithmetic_two` field `input` split `test`; preserve configured small answer metadata fields via `source.answer_fields`.
+- Final-answer verification in `scripts/pruning_flow.py` must capture through line end and preserve decimals, including periods inside numbers.
+- Default/local outputs are temporary R&D generation paths: `outputs/datasets/seed_dev.jsonl` for seed/dev, `outputs/datasets/svamp_baseline.jsonl` for SVAMP, and `outputs/datasets/bbh_logical_deduction_baseline.jsonl` for selected BBH logical deduction. Final generated datasets belong in private HF dataset repos under `../sentence-pruning-datasets`; private model/checkpoint repos belong under `../sentence-pruning-checkpoints`.
+- HF release behavior: configured `output.hf_upload_repo` alone is local-only; uploads require `--upload-to-hf`, fail early without a repo id, use the local basename when `hf_upload_path` is empty, and always write a local `*.manifest.json` next to accepted JSONL.
