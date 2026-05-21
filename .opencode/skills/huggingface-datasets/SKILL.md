@@ -1,39 +1,107 @@
 ---
 name: huggingface-datasets
-description: Guides Hugging Face dataset loading and optional gated Hub releases for the reasoning-pruning Data repo. Use when discovering external reasoning datasets, configuring HF sources, testing one HF dataset, or releasing inspected JSONL with --upload-to-hf.
+description: Use this skill for Hugging Face Dataset Viewer API workflows that fetch subset/split metadata, paginate rows, search text, apply filters, download parquet URLs, and read size or statistics.
 ---
 
-<huggingface-datasets>
-Use this skill when replacing the built-in seed tasks with an external Hugging Face dataset or when releasing an inspected local pruning-transition JSONL file to a Hugging Face dataset repo. HF has two separate roles here: input source (`source = "hf"`) and optional cloud release target (`--upload-to-hf`). Local dataset creation is always the default; upload happens only after an explicit release decision. Generation and pruning still use the required live LiteLLM client configured in `config/default.toml`.
-</huggingface-datasets>
+# Hugging Face Dataset Viewer
 
-<loading-workflow>
-1. Use the optional extra: `uv run --extra hf ...`.
-2. Identify the dataset name, optional config, split, and text field that contains the task prompt, then put those values in `[source]` in `config/default.toml` or a copied config.
-3. Run the SVAMP baseline (or another dataset config) with credentials loaded from environment or `.env` and no upload flag:
-   `uv run --extra hf python scripts/create_pruning_dataset.py --config config/svamp.toml`
-4. Inspect accepted counts plus `input_x`, `target_y`, removed span, and task metadata quality before scaling up.
-</loading-workflow>
+Use this skill to execute read-only Dataset Viewer API calls for dataset exploration and extraction.
 
-<upload-workflow>
-1. Local JSONL output remains required. The runner also writes a local `*.manifest.json` beside the accepted JSONL.
-2. Use the optional extra so `huggingface_hub` is available: `uv run --extra hf ...`.
-3. Authenticate with `HF_TOKEN` or `huggingface-cli login`; never print token values.
-4. Upload only after a release decision. Configure `output.hf_upload_repo`; use private repos for early data, and set a versioned path such as `output.hf_upload_path = "data/v0.1.0/train.jsonl"`.
-5. Run with the explicit gate after confirming the local sample and path are correct: `uv run --extra hf python scripts/create_pruning_dataset.py --config config/default.toml --upload-to-hf`.
-6. If `--upload-to-hf` is omitted, no upload happens even when a repo is configured. If the flag is present without a repo id, the run fails clearly before generation/upload work. If the Hub path is empty, the local JSONL basename is used.
-7. Copy or upload the local manifest with the release (for example `data/v0.1.0/manifest.json`) because the runner currently uploads only the accepted JSONL automatically.
-</upload-workflow>
+## Core workflow
 
-<selection-guidance>
-Prefer reasoning-heavy prompts with clear final answers: arithmetic, word problems, symbolic logic, or multi-step QA. Avoid datasets whose text field mixes answer labels into the prompt unless that is intentional and documented in `task_metadata`.
-</selection-guidance>
+1. Optionally validate dataset availability with `/is-valid`.
+2. Resolve `config` + `split` with `/splits`.
+3. Preview with `/first-rows`.
+4. Paginate content with `/rows` using `offset` and `length` (max 100).
+5. Use `/search` for text matching and `/filter` for row predicates.
+6. Retrieve parquet links via `/parquet` and totals/metadata via `/size` and `/statistics`.
 
-<common-mistakes>
-- Do not make `datasets` a required dependency for unit tests.
-- Put Hugging Face source settings in config, and use live LiteLLM calls for generation and pruning decisions.
-- Do not run large remote loads before checking a small `--limit` sample.
-- Do not treat HF source loading as approval to upload; input and release are separate decisions.
-- Do not save low-quality prompts simply because the pipeline accepted them; dataset choice still needs review.
-- Do not push to Hugging Face without `--upload-to-hf`, an explicit repo id, a private/versioned target for early releases, and user approval.
-</common-mistakes>
+## Defaults
+
+- Base URL: `https://datasets-server.huggingface.co`
+- Default API method: `GET`
+- Query params should be URL-encoded.
+- `offset` is 0-based.
+- `length` max is usually `100` for row-like endpoints.
+- Gated/private datasets require `Authorization: Bearer <HF_TOKEN>`.
+
+## Dataset Viewer
+
+- `Validate dataset`: `/is-valid?dataset=<namespace/repo>`
+- `List subsets and splits`: `/splits?dataset=<namespace/repo>`
+- `Preview first rows`: `/first-rows?dataset=<namespace/repo>&config=<config>&split=<split>`
+- `Paginate rows`: `/rows?dataset=<namespace/repo>&config=<config>&split=<split>&offset=<int>&length=<int>`
+- `Search text`: `/search?dataset=<namespace/repo>&config=<config>&split=<split>&query=<text>&offset=<int>&length=<int>`
+- `Filter with predicates`: `/filter?dataset=<namespace/repo>&config=<config>&split=<split>&where=<predicate>&orderby=<sort>&offset=<int>&length=<int>`
+- `List parquet shards`: `/parquet?dataset=<namespace/repo>`
+- `Get size totals`: `/size?dataset=<namespace/repo>`
+- `Get column statistics`: `/statistics?dataset=<namespace/repo>&config=<config>&split=<split>`
+- `Get Croissant metadata (if available)`: `/croissant?dataset=<namespace/repo>`
+
+Pagination pattern:
+
+```bash
+curl "https://datasets-server.huggingface.co/rows?dataset=stanfordnlp/imdb&config=plain_text&split=train&offset=0&length=100"
+curl "https://datasets-server.huggingface.co/rows?dataset=stanfordnlp/imdb&config=plain_text&split=train&offset=100&length=100"
+```
+
+When pagination is partial, use response fields such as `num_rows_total`, `num_rows_per_page`, and `partial` to drive continuation logic.
+
+Search/filter notes:
+
+- `/search` matches string columns (full-text style behavior is internal to the API).
+- `/filter` requires predicate syntax in `where` and optional sort in `orderby`.
+- Keep filtering and searches read-only and side-effect free.
+
+For CLI-based parquet URL discovery or SQL, use the `hf-cli` skill with `hf datasets parquet` and `hf datasets sql`.
+
+## Creating and Uploading Datasets
+
+Use one of these flows depending on dependency constraints.
+
+Zero local dependencies (Hub UI):
+
+- Create dataset repo in browser: `https://huggingface.co/new-dataset`
+- Upload parquet files in the repo "Files and versions" page.
+- Verify shards appear in Dataset Viewer:
+
+```bash
+curl -s "https://datasets-server.huggingface.co/parquet?dataset=<namespace>/<repo>"
+```
+
+Low dependency CLI flow (`npx @huggingface/hub` / `hfjs`):
+
+- Set auth token:
+
+```bash
+export HF_TOKEN=<your_hf_token>
+```
+
+- Upload parquet folder to a dataset repo (auto-creates repo if missing):
+
+```bash
+npx -y @huggingface/hub upload datasets/<namespace>/<repo> ./local/parquet-folder data
+```
+
+- Upload as private repo on creation:
+
+```bash
+npx -y @huggingface/hub upload datasets/<namespace>/<repo> ./local/parquet-folder data --private
+```
+
+After upload, call `/parquet` to discover `<config>/<split>/<shard>` values for querying with `@~parquet`.
+
+## Agent Traces
+
+The Hub supports raw agent session traces from Claude Code, Codex, and Pi Agent. Upload them to Hugging Face Datasets as original JSONL files and the Hub can auto-detect the trace format, tag the dataset as `Traces`, and enable the trace viewer for browsing sessions, turns, tool calls, and model responses. Common local session directories:
+
+- Claude Code: `~/.claude/projects`
+- Codex: `~/.codex/sessions`
+- Pi: `~/.pi/agent/sessions`
+
+Default to private dataset repos because traces can contain prompts, file paths, tool outputs, secrets, or PII. Preserve the raw `.jsonl` files and nest them by project/cwd instead of uploading every session at the dataset root.
+
+```bash
+hf repos create <namespace>/<repo> --type dataset --private --exist-ok
+hf upload <namespace>/<repo> ~/.codex/sessions codex/<project-or-cwd> --type dataset
+```

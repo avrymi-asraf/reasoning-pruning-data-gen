@@ -23,10 +23,9 @@ hf_private = false
 
 [generation]
 provider = "huggingface"
-# Default serverless-style LiteLLM route. This may fail for the custom Gemma4
-# architecture; the preview script switches to model="huggingface/tgi" when an
-# HF Inference Endpoint URL is provided by --endpoint-url or HF_GEMMA4_ENDPOINT_URL.
-model = "huggingface/hf-inference/avreymi/reasoning-pruning-gemma-4-E2B-it-assistant"
+# Dedicated HF Inference Endpoint (requires handler.py in model repo).
+# Set base_url to your endpoint URL, or use HF_GEMMA4_ENDPOINT_URL env var.
+model = "huggingface/tgi"
 base_url = ""
 temperature = 0.2
 max_tokens = 1200

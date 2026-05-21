@@ -4,8 +4,10 @@
 
 <!-- One line per durable implementation event. Most recent first. -->
 
+- 2026-05-20: Added `huggingface-inference-endpoints` skill and updated `litellm-data-generation` with HF endpoint/TGI/custom-architecture troubleshooting guidance; keep provider-support failures separate from prompt debugging.
+- 2026-05-20: Removed unnecessary `scripts/create_gemma4_hf_pt_preview.py` wrapper script; the repo is config-driven — run all tasks via `scripts/create_pruning_dataset.py --config <config.toml>`. Kept `config/bbh-logical-deduction-gemma4-hf-preview.toml` as the correct config-only approach. Lesson: do not create wrapper scripts for specific models unless explicitly requested.
 - 2026-05-20: Added `tenacity>=8.0` as a base dependency so normal `uv run --extra hf ...` LiteLLM/HF generation commands include LiteLLM retry support without ad hoc `--with tenacity`.
-- 2026-05-20: Added Hugging Face-hosted Gemma4 preview support: LiteLLM configs now allow `provider="huggingface"` and map configured `base_url` to `api_base`; `scripts/create_gemma4_hf_pt_preview.py` writes/prints local BBH logical-deduction compact previews without upload.
+- 2026-05-20: Added Hugging Face-hosted Gemma4 preview support: LiteLLM configs now allow `provider="huggingface"` and map configured `base_url` to `api_base`.
 - 2026-05-20: Sanitized manifest LLM metadata so generation/decision entries preserve provider, model, temperature, max_tokens, and `base_url_configured` without persisting raw base URLs.
 - 2026-05-20: Changed accepted PT JSONL rows to the compact plan schema (`id`, `question`, `input_x`, `target_y`, `depth`, `decision`) and moved reproducibility metadata to the manifest with a deterministic decision config revision.
 - 2026-05-19: Added `config/bbh-logical-deduction.toml` for the selected `lukaemon/bbh` logical deduction baseline and documented that final dataset/checkpoint repos live under adjacent private HF clones.
