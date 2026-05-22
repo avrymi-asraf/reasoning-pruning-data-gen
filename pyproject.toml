@@ -9,6 +9,15 @@ dependencies = ["litellm>=1.0", "tenacity>=8.0", "python-dotenv>=1.0", "tomli>=2
 [project.optional-dependencies]
 hf = ["datasets>=2.0", "huggingface_hub>=0.20"]
 dev = ["pytest>=8.0"]
+gemma4 = [
+    "torch",
+    "torchvision",
+    "accelerate",
+    "safetensors",
+    "sentencepiece",
+    "tokenizers",
+    "transformers @ git+https://github.com/huggingface/transformers.git@52b82b299171721fbe7b04fe056187f7aed2e2cc",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -120,11 +120,147 @@ def test_config_loading_requires_prompt_placeholders(tmp_path):
         raise AssertionError("bad config should fail")
 
 
-def test_huggingface_provider_is_allowed():
+def test_huggingface_and_transformers_providers_are_allowed():
     config = LLMConfig(provider="huggingface", model="huggingface/hf-inference/org/model")
+    transformers_config = LLMConfig(provider="transformers", model="org/gemma4", model_revision="abc123", dtype="bfloat16", device_map="auto", top_p=0.95)
 
     assert config.provider == "huggingface"
     assert config.model == "huggingface/hf-inference/org/model"
+    assert transformers_config.provider == "transformers"
+    assert transformers_config.model_revision == "abc123"
+    assert transformers_config.dtype == "bfloat16"
+    assert transformers_config.device_map == "auto"
+    assert transformers_config.top_p == 0.95
+
+
+def test_transformers_generation_config_fields_parse(tmp_path):
+    path = write_config(tmp_path)
+    text = path.read_text(encoding="utf-8")
+    text = text.replace(
+        f'provider = "gemini"\nmodel = "{DEFAULT_MODEL}"\ntemperature = 0.2',
+        '\n'.join(
+            [
+                'provider = "transformers"',
+                'model = "avreymi/reasoning-pruning-gemma-4-E2B-it"',
+                'model_revision = "bd9b988310985cb4769a5039b580448bab2fb3ec"',
+                'temperature = 0.2',
+                'top_p = 0.95',
+                'max_tokens = 1200',
+                'dtype = "bfloat16"',
+                'device_map = "auto"',
+                'transformers_loader = "auto_model_for_image_text_to_text"',
+            ]
+        ),
+        1,
+    )
+    path.write_text(text, encoding="utf-8")
+
+    config = pruning_flow.load_pruning_config(path)
+
+    assert config.generation.provider == "transformers"
+    assert config.generation.model_revision == "bd9b988310985cb4769a5039b580448bab2fb3ec"
+    assert config.generation.dtype == "bfloat16"
+    assert config.generation.device_map == "auto"
+    assert config.generation.top_p == 0.95
+    assert config.generation.max_tokens == 1200
+
+
+def test_transformers_provider_dispatches_to_backend_without_importing_transformers(monkeypatch):
+    captured = {}
+
+    def fake_transformers(prompt, config, *, system=None):
+        captured.update({"prompt": prompt, "provider": config.provider, "system": system})
+        return "generated"
+
+    monkeypatch.setattr(llm_client, "_call_transformers", fake_transformers)
+
+    text = llm_client.call_llm("hello", LLMConfig(provider="transformers", model="org/gemma4"), system="Be clear.")
+
+    assert text == "generated"
+    assert captured == {"prompt": "hello", "provider": "transformers", "system": "Be clear."}
+
+
+def test_transformers_backend_uses_chat_template_and_generated_token_decode(monkeypatch):
+    calls = {}
+
+    class FakeTensor:
+        shape = (1, 3)
+
+        def to(self, device):
+            calls["input_device"] = device
+            return self
+
+    class FakeProcessor:
+        @classmethod
+        def from_pretrained(cls, model, **kwargs):
+            calls["processor_load"] = (model, kwargs)
+            return cls()
+
+        def apply_chat_template(self, messages, **kwargs):
+            calls["template"] = (messages, kwargs)
+            return {"input_ids": FakeTensor()}
+
+        def decode(self, ids, **kwargs):
+            calls["decode"] = (ids, kwargs)
+            return "generated text"
+
+    class FakeModel:
+        device = "cuda:0"
+
+        @classmethod
+        def from_pretrained(cls, model, **kwargs):
+            calls["model_load"] = (model, kwargs)
+            return cls()
+
+        def generate(self, **kwargs):
+            calls["generate"] = kwargs
+            return [[10, 11, 12, 99, 100]]
+
+    class FakeInferenceMode:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    fake_torch = types.SimpleNamespace(
+        bfloat16="bf16",
+        float16="fp16",
+        float32="fp32",
+        inference_mode=lambda: FakeInferenceMode(),
+    )
+    fake_transformers = types.SimpleNamespace(
+        AutoProcessor=FakeProcessor,
+        AutoModelForImageTextToText=FakeModel,
+        Gemma4ForConditionalGeneration=FakeModel,
+    )
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+    monkeypatch.setenv("HF_TOKEN", "hf_test_token")
+
+    config = LLMConfig(
+        provider="transformers",
+        model="org/gemma4",
+        model_revision="rev1",
+        dtype="bfloat16",
+        device_map="auto",
+        max_tokens=128,
+        temperature=0.2,
+        top_p=0.95,
+    )
+
+    backend = llm_client.TransformersChatBackend(config)
+    text = backend.generate(llm_client._transformers_messages("prompt", "system"), max_new_tokens=128, temperature=0.2, top_p=0.95)
+
+    assert text == "generated text"
+    assert calls["processor_load"] == ("org/gemma4", {"revision": "rev1", "token": "hf_test_token"})
+    assert calls["model_load"] == ("org/gemma4", {"revision": "rev1", "token": "hf_test_token", "dtype": "bf16", "device_map": "auto"})
+    assert calls["template"][1] == {"add_generation_prompt": True, "tokenize": True, "return_dict": True, "return_tensors": "pt"}
+    assert calls["input_device"] == "cuda:0"
+    assert calls["generate"]["max_new_tokens"] == 128
+    assert calls["generate"]["temperature"] == 0.2
+    assert calls["generate"]["top_p"] == 0.95
+    assert calls["decode"] == ([99, 100], {"skip_special_tokens": True})
 
 
 def test_huggingface_endpoint_base_url_maps_to_litellm_api_base(monkeypatch):

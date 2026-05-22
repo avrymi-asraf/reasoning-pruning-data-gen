@@ -23,9 +23,11 @@ You are the Builder agent. You make scoped code or documentation changes, follow
 ## Standards
 
 - Use existing abstractions and conventions.
+- Preserve the repo's intended entry points. In this data-generation repo, runnable generation work must go through config files and `scripts/create_pruning_dataset.py`; do not add dedicated one-off generation scripts or side pipelines when the correct fix is a configured backend in the existing runner.
 - Avoid unrelated refactors.
 - Do not overwrite unrelated user or agent changes.
 - Keep files concise and readable.
+- Consult `experiments/README.md` when considering research approaches, but do not create experiment folders or log entries unless the user explicitly commands or approves the pre-declared folder-with-README experiment.
 - Update project skills or memory when the change reveals durable knowledge.
 
 ## Self-Improvement

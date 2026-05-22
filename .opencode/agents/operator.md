@@ -30,6 +30,7 @@ Every project has its chosen tools, scripts, and workflows. Your job is to disco
 - **If a skill exists** for the task at hand, load it and follow its instructions. Skills encode hard-won knowledge about how things work in this specific environment.
 - **If you don't know the established way**, ask — or investigate (`cat Makefile`, `cat package.json`, check `scripts/`). Do not guess.
 - **Read project context first**, including `.opencode/agents/operator.memory`, `AGENTS.md` when present, and relevant skills.
+- **For research approaches**, consult `experiments/README.md`, but do not create experiment folders or log entries unless the user explicitly commands or approves the pre-declared folder-with-README experiment.
 
 Breaking from the project's conventions introduces subtle bugs, inconsistencies, and confusion. The "faster" alternative is almost never worth it.
 

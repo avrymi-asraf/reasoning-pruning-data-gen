@@ -220,6 +220,11 @@ def _model_config(data: dict[str, Any], *, default_temperature: float) -> LLMCon
         max_tokens=data.get("max_tokens"),
         timeout=data.get("timeout"),
         retries=int(data.get("retries", 0)),
+        model_revision=_optional_str(data.get("model_revision")),
+        dtype=_optional_str(data.get("dtype")),
+        device_map=_optional_str(data.get("device_map")),
+        top_p=float(data["top_p"]) if data.get("top_p") is not None else None,
+        transformers_loader=str(data.get("transformers_loader", "auto_model_for_image_text_to_text")),
     )
 
 

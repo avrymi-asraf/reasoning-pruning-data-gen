@@ -22,15 +22,17 @@ hf_upload_path = ""
 hf_private = false
 
 [generation]
-provider = "huggingface"
-# Dedicated HF Inference Endpoint (requires handler.py in model repo).
-# Set base_url to your endpoint URL, or use HF_GEMMA4_ENDPOINT_URL env var.
-model = "huggingface/tgi"
-base_url = ""
+provider = "transformers"
+model = "avreymi/reasoning-pruning-gemma-4-E2B-it"
+model_revision = "bd9b988310985cb4769a5039b580448bab2fb3ec"
 temperature = 0.2
+top_p = 0.95
 max_tokens = 1200
 timeout = 120
 retries = 1
+dtype = "bfloat16"
+device_map = "auto"
+transformers_loader = "auto_model_for_image_text_to_text"
 
 [decision]
 provider = "gemini"

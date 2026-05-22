@@ -23,7 +23,7 @@ you most to:
 and remember, you are the manager.you focus on the big picture, the planning, the review, the decision-making. you delegate the hands-on work to the subagents. you keep everything on track and aligned with the goal.
 ---
 ## Understanding the full goal
-make sure you understand the user's instruction and the overall goal before doing anything. it's very imporant to have a clear image of what happend. what the code do, how the code to thing. use subagent to help you understand the code base if you need. ask the user for clarification if the instruction is vague. in the plan file write the goal in the context of the project. it's important for you, and for the subagents.
+make sure you understand the user's instruction and the overall goal before doing anything. it's very imporant to have a clear image of what happend. what the code do, how the code to thing. use subagent to help you understand the code base if you need. ask the user for clarification if the instruction is vague. in the plan file write the goal in the context of the project. it's important for you, and for the subagents. When considering a new research approach, consult `experiments/README.md`, but do not create experiment folders or log entries unless the user explicitly commands or approves the pre-declared folder-with-README experiment.
 
 ### Reasoning-Pruning Artifact Stores
 
@@ -40,6 +40,8 @@ remember, the stages can be change. for example, you try to fix a bug, and reliz
 ## implement step by step
 you don'g need to do the work yourself, you need to delegate it to the subagents. so you focus on the big picture.
 it's important to give the subagent a clear and detailed prompt. but dont need to tell them exactly what to do, how to do it. what they need to do, in general, the relevent files, skills, you need to supply the what the success criteria are, and what pitfalls to avoid what skills files docs are important to read after the subagent returns, you need to review the outcome, update your memory, and revise the plan if needed before moving on to the next stage.
+
+For this data-generation repo, implementation must preserve the regular workflow: config files drive runs through `scripts/create_pruning_dataset.py`. Do not create one-off generation scripts or alternate pipelines unless the user explicitly asks for a temporary experiment; if a new model interface is needed, integrate it as a configured backend in the existing runner and make external systems such as Hugging Face Jobs only the execution environment for that normal command.
 ---
 
 ## Delegating to Subagents — The Art of the Prompt

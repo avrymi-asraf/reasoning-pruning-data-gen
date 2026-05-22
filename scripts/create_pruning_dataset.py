@@ -69,13 +69,24 @@ def config_sha256(config_path: str | Path) -> str | None:
 
 def llm_manifest_metadata(llm_config) -> dict[str, Any]:
     """Return reproducibility metadata for an LLM config without persisting endpoint secrets."""
-    return {
+    metadata = {
         "provider": llm_config.provider,
         "model": llm_config.model,
         "temperature": llm_config.temperature,
         "max_tokens": llm_config.max_tokens,
         "base_url_configured": bool(llm_config.base_url),
     }
+    if llm_config.provider == "transformers":
+        metadata.update(
+            {
+                "model_revision": llm_config.model_revision,
+                "dtype": llm_config.dtype,
+                "device_map": llm_config.device_map,
+                "top_p": llm_config.top_p,
+                "transformers_loader": llm_config.transformers_loader,
+            }
+        )
+    return metadata
 
 
 def build_manifest(config, *, accepted_count: int, rejected_count: int, upload_requested: bool, uploaded_url: str | None) -> dict[str, Any]:

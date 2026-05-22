@@ -62,6 +62,7 @@ For this repo, that means recording the selected generator checkpoint/model, che
 ├── docs/
 │   ├── dataset-storage.md       # HF Hub versioning, layout, upload workflow
 │   └── R1.md                    # Canonical algorithm and record-shape note
+├── experiments/                 # Folder-per-experiment research notebook and index
 ├── research/
 │   ├── INDEX.md
 │   ├── raw/                     # Raw research notes
@@ -77,6 +78,7 @@ For this repo, that means recording the selected generator checkpoint/model, che
 * `scripts/`: All executable logic. The pipeline is importable for testing; the CLI runner is the public entry point.
 * `tests/`: No-network pytest suite. LLM calls are injected via `call_fn` parameter; no mocking of internal logic.
 * `docs/`: Project-specific documents: algorithm note and storage strategy.
+* `experiments/`: Serious research notebook. Experiments are pre-declared folders named like `NNN-short-title/`, each with a `README.md` explaining the investigation and files. Read `experiments/README.md` before proposing a new approach, but do not create/update experiment folders or index records unless the user explicitly commands or approves the experiment.
 * `research/`: Background research notes and references.
 * `outputs/`: Local-only generated datasets (gitignored). Inspect before releasing to Hub.
 
