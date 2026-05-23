@@ -9,6 +9,7 @@ dist/
 build/
 *.egg-info/
 outputs/
+.opencode/
 .env
 .env.*
 !.env.example
