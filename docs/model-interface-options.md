@@ -8,9 +8,9 @@ The active Gemma4 data-generation path is **Hugging Face Jobs running the normal
 uv run --extra hf --extra gemma4 python scripts/create_pruning_dataset.py --config config/bbh-logical-deduction-gemma4-hf-preview.toml
 ```
 
-Use image `ghcr.io/astral-sh/uv:python3.11-bookworm`, flavor `a10g-large`, encrypted `HF_TOKEN` and `GEMINI_API_KEY`, clone/download `https://github.com/avrymi-asraf/reasoning-pruning-data-gen.git`, run the command above, and print sanitized accepted/rejected/manifest summaries. Never print tokens or secret-bearing URLs.
+Use image `ghcr.io/astral-sh/uv:python3.11-bookworm`, flavor `a10g-large`, encrypted `HF_TOKEN` and `GEMINI_API_KEY`, clone/download `https://github.com/avrymi-asraf/reasoning-pruning-data-gen.git`, run the command above, and print sanitized accepted/rejected/manifest summaries. Never print tokens or secret-bearing URLs. `scripts/run_hf_job.py` is the transparent launcher for this shape: it dry-runs by default, adds paid execution only with `--launch`, passes secrets by name without printing values, and in auto mode prefers executable `uvx --from huggingface_hub hf` before falling back to a usable `hf` executable.
 
-Successful preview reference: HF Job `6a106a46b33ece92698c06f8`, accepted `3`, rejected `0`, generation model `avreymi/reasoning-pruning-gemma-4-E2B-it`, decision model `gemini/gemini-2.5-flash-lite`.
+Artifact-persistence proof after the upload fix: HF Job [`6a11634de3c0b51e1ca5db6a`](https://huggingface.co/jobs/avreymi/6a11634de3c0b51e1ca5db6a) completed successfully, and scratch artifact upload/download/sync worked with `accepted=0`, `rejected=30`, and `hf_release.upload_requested=false`. This is not a data-quality proof. Earlier successful data-quality preview: HF Job `6a106a46b33ece92698c06f8`, accepted `3`, rejected `0`, generation model `avreymi/reasoning-pruning-gemma-4-E2B-it`, decision model `gemini/gemini-2.5-flash-lite`.
 
 ## Why this is the current path
 
@@ -22,14 +22,36 @@ Successful preview reference: HF Job `6a106a46b33ece92698c06f8`, accepted `3`, r
 ## Runbook
 
 1. Keep preview limits small in `config/bbh-logical-deduction-gemma4-hf-preview.toml` or a nearby config.
-2. Launch an HF Job using the image/flavor/secrets above.
-3. Inside the job, clone/download the repo and run only the canonical command.
-4. Print sanitized summaries: output paths, accepted count, rejected count, model names, config path/hash, and manifest fields. Do not print secret values.
-5. Inspect accepted JSONL, rejected/audit JSONL, and manifest.
-6. Iterate by changing config TOML/limits and rerunning previews.
-7. When a run is selected, copy accepted JSONL, rejected/audit JSONL, manifest/source/config metadata into a private dataset repo under `../reasoning-pruning-datasets` and commit it.
+2. Dry-run the launcher and review the generated in-job script and local HF CLI command:
+
+```bash
+uv run python scripts/run_hf_job.py
+```
+
+3. Launch an HF Job using the image/flavor/secrets above:
+
+```bash
+uv run python scripts/run_hf_job.py --launch
+```
+
+4. Prefer a persisted-artifact preview launch when you need accepted/rejected/manifest files locally after the job:
+
+```bash
+uv run python scripts/run_hf_job.py \
+  --persist-artifacts \
+  --artifact-label bbh-logical-deduction-preview-001 \
+  --launch
+```
+
+5. Inside the job, clone/download the repo and run only the canonical command.
+6. Print sanitized summaries: output paths, accepted count, rejected count, model names, config path/hash, and manifest fields. Do not print secret values.
+7. Inspect accepted JSONL, rejected/audit JSONL, and manifest after persisting/syncing artifacts.
+8. Iterate by changing config TOML/limits and rerunning previews.
+9. When a run is selected, copy accepted JSONL, rejected/audit JSONL, manifest/source/config metadata into a private dataset repo under `../reasoning-pruning-datasets` and commit it.
 
 Do not use `--upload-to-hf` unless the user explicitly approves a release/upload.
+
+HF Jobs output files are job-local under the configured paths, normally `outputs/datasets/`, and are not directly downloadable from the job filesystem. Use launcher scratch persistence (`--persist-artifacts --artifact-label ...`) and local UI/server sync or visible `hf download` commands for inspection retrieval. In-job scratch persistence must call `uvx --from huggingface_hub hf upload ...`; bare `hf upload` failed in job `6a115610b33ece92698c13af` because the job image did not have `hf`. This scratch upload path is not a dataset release and does not imply `--upload-to-hf`.
 
 ## Historical rejected alternatives
 

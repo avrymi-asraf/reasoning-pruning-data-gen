@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import shlex
+import subprocess
 import tempfile
 import uuid
 from pathlib import Path
@@ -55,6 +56,12 @@ SAFE_REPO_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9
 SECRET_NAMES = ["HF_TOKEN", "GEMINI_API_KEY"]
 DEFAULT_ARTIFACT_REPO_ID = "avreymi/reasoning-pruning-job-artifacts"
 DEFAULT_ARTIFACT_PREFIX_TEMPLATE = "job-artifacts/{label}/outputs/datasets"
+HF_JOB_UPLOAD_COMMAND_PREFIX = ["uvx", "--from", "huggingface_hub", "hf", "upload"]
+DEFAULT_HF_JOB_REPO_URL = "https://github.com/avrymi-asraf/reasoning-pruning-data-gen.git"
+DEFAULT_HF_JOB_IMAGE = "ghcr.io/astral-sh/uv:python3.11-bookworm"
+DEFAULT_HF_JOB_FLAVOR = "a10g-large"
+DEFAULT_HF_JOB_TIMEOUT = "7200"
+HF_JOB_CLI_CHOICES = {"auto", "uvx", "hf"}
 
 app = FastAPI(title="Sentence Pruning Data Manager")
 
@@ -207,6 +214,10 @@ def build_local_command(body: "CommandBody") -> list[str]:
     return cmd
 
 
+def build_local_server_command() -> list[str]:
+    return ["uv", "run", "server.py"]
+
+
 def upload_gate_satisfied(body: "CommandBody") -> bool:
     return bool(body.upload_to_hf and body.upload_approval and body.upload_phrase == "UPLOAD")
 
@@ -246,7 +257,7 @@ def build_hf_job_script(body: "CommandBody") -> str:
         ]
         for path in expected_artifact_paths(body):
             remote_path = f"{prefix}/{Path(path).name}"
-            lines.append(shell_join(["hf", "upload", repo_id, path, remote_path, "--repo-type", "dataset", "--private"]))
+            lines.append(shell_join(HF_JOB_UPLOAD_COMMAND_PREFIX + [repo_id, path, remote_path, "--repo-type", "dataset", "--private"]))
     return "\n".join(lines)
 
 
@@ -273,8 +284,11 @@ def expected_artifact_basenames(body: "CommandBody") -> list[str]:
 
 
 def hf_cli_prefix() -> list[str]:
+    uvx_path = shutil.which("uvx")
+    if uvx_path and Path(uvx_path).is_file() and os.access(uvx_path, os.X_OK):
+        return [uvx_path, "--from", "huggingface_hub", "hf"]
     hf_path = shutil.which("hf")
-    if hf_path:
+    if hf_path and Path(hf_path).is_file() and os.access(hf_path, os.X_OK):
         return [hf_path]
     return ["uvx", "--from", "huggingface_hub", "hf"]
 
@@ -284,6 +298,50 @@ def build_hf_download_command(body: "ArtifactSyncBody") -> list[str]:
     prefix = validate_artifact_prefix(body.artifact_prefix)
     filenames = [f"{prefix}/{name}" for name in validate_expected_basenames(body.expected_basenames)]
     return hf_cli_prefix() + ["download", repo_id, *filenames, "--repo-type", body.repo_type, "--local-dir", "<temp-dir>"]
+
+
+def build_hf_job_dry_run_command(body: "HFJobBody") -> list[str]:
+    if body.launch:
+        raise HTTPException(400, "HF Jobs --launch is intentionally unavailable from this UI")
+    config_path = body.config or f"config/{CANONICAL_CONFIG}.toml"
+    if Path(config_path).is_absolute() or ".." in Path(config_path).parts:
+        raise HTTPException(400, "HF job config must be a relative config path")
+    if not config_path.startswith("config/") or not config_path.endswith(".toml"):
+        raise HTTPException(400, "HF job config must look like config/<name>.toml")
+    config_name = Path(config_path).stem
+    config_path_for_name(config_name)
+    if body.hf_cli not in HF_JOB_CLI_CHOICES:
+        raise HTTPException(400, "hf_cli must be one of auto, uvx, hf")
+
+    cmd = [
+        "uv",
+        "run",
+        "python",
+        "scripts/run_hf_job.py",
+        "--config",
+        config_path,
+        "--repo-url",
+        body.repo_url,
+        "--image",
+        body.image,
+        "--flavor",
+        body.flavor,
+        "--timeout",
+        body.timeout,
+        "--artifact-repo",
+        validate_repo_id(body.artifact_repo),
+        "--hf-cli",
+        body.hf_cli,
+    ]
+    if body.ref:
+        cmd += ["--ref", body.ref]
+    if body.persist_artifacts:
+        cmd.append("--persist-artifacts")
+    if body.artifact_prefix:
+        cmd += ["--artifact-prefix", validate_artifact_prefix(body.artifact_prefix)]
+    if body.artifact_label:
+        cmd += ["--artifact-label", body.artifact_label]
+    return cmd
 
 
 async def run_hf_download(body: "ArtifactSyncBody", temp_dir: Path) -> tuple[list[str], str]:
@@ -385,6 +443,21 @@ class ArtifactSyncBody(BaseModel):
     expected_basenames: list[str]
 
 
+class HFJobBody(BaseModel):
+    config: str = f"config/{CANONICAL_CONFIG}.toml"
+    repo_url: str = DEFAULT_HF_JOB_REPO_URL
+    ref: str = ""
+    image: str = DEFAULT_HF_JOB_IMAGE
+    flavor: str = DEFAULT_HF_JOB_FLAVOR
+    timeout: str = DEFAULT_HF_JOB_TIMEOUT
+    persist_artifacts: bool = False
+    artifact_repo: str = DEFAULT_ARTIFACT_REPO_ID
+    artifact_prefix: str = ""
+    artifact_label: str = ""
+    hf_cli: str = "auto"
+    launch: bool = False
+
+
 @app.post("/api/command-preview")
 async def command_preview(body: CommandBody) -> dict:
     local_cmd = build_local_command(body)
@@ -409,6 +482,43 @@ async def command_preview(body: CommandBody) -> dict:
         "env_presence": {name: bool(os.environ.get(name)) for name in SECRET_NAMES},
         "launches_paid_job": False,
         "upload_flag_included": "--upload-to-hf" in local_cmd,
+    }
+
+
+@app.get("/api/local-server/preview")
+async def local_server_preview() -> dict:
+    cmd = build_local_server_command()
+    return {"command": shell_join(cmd), "command_parts": cmd, "copy_only": True}
+
+
+@app.post("/api/hf-job/preview")
+async def hf_job_preview(body: HFJobBody) -> dict:
+    cmd = build_hf_job_dry_run_command(body)
+    return {
+        "command": shell_join(cmd),
+        "command_parts": cmd,
+        "launches_paid_job": False,
+        "secret_names": SECRET_NAMES,
+        "env_presence": {name: bool(os.environ.get(name)) for name in SECRET_NAMES},
+    }
+
+
+@app.post("/api/hf-job/dry-run")
+async def hf_job_dry_run(body: HFJobBody) -> dict:
+    cmd = build_hf_job_dry_run_command(body)
+    completed = subprocess.run(
+        cmd,
+        cwd=PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return {
+        "command": shell_join(cmd),
+        "returncode": completed.returncode,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+        "launches_paid_job": False,
     }
 
 
@@ -649,8 +759,12 @@ def build_toml(data: dict[str, Any]) -> str:
         return json.dumps(str(v))
 
     section_order = ["run", "source", "output", "generation", "decision", "iteration", "quality", "prompts"]
+    section_order += [key for key in data.keys() if key not in section_order]
     for section in section_order:
         if section not in data:
+            continue
+        if not isinstance(data[section], dict):
+            lines.append(f"{section} = {_val(data[section])}")
             continue
         lines.append(f"[{section}]")
         for key, val in data[section].items():

@@ -122,7 +122,7 @@ The data repo's artifact metadata should support file-based handoffs:
 uv run --extra hf --extra gemma4 python scripts/create_pruning_dataset.py --config config/bbh-logical-deduction-gemma4-hf-preview.toml
 ```
 
-Run that command inside an HF Job that clones/downloads `https://github.com/avrymi-asraf/reasoning-pruning-data-gen.git`, uses image `ghcr.io/astral-sh/uv:python3.11-bookworm`, flavor `a10g-large`, encrypted `HF_TOKEN` and `GEMINI_API_KEY`, and prints sanitized manifest/accepted/rejected summaries. Recent successful preview: job `6a106a46b33ece92698c06f8`, accepted `3`, rejected `0`, generation model `avreymi/reasoning-pruning-gemma-4-E2B-it`, decision model `gemini/gemini-2.5-flash-lite`.
+Run that command inside an HF Job that clones/downloads `https://github.com/avrymi-asraf/reasoning-pruning-data-gen.git`, uses image `ghcr.io/astral-sh/uv:python3.11-bookworm`, flavor `a10g-large`, encrypted `HF_TOKEN` and `GEMINI_API_KEY`, and prints sanitized manifest/accepted/rejected summaries. Earlier successful data-quality preview: job `6a106a46b33ece92698c06f8`, accepted `3`, rejected `0`, generation model `avreymi/reasoning-pruning-gemma-4-E2B-it`, decision model `gemini/gemini-2.5-flash-lite`. Artifact persistence proof after the `uvx --from huggingface_hub hf upload ...` fix: job `6a11634de3c0b51e1ca5db6a`, accepted `0`, rejected `30`, `hf_release.upload_requested=false`; this proves scratch upload/download/sync, not data quality.
 
 Local-only development aids:
 ```bash

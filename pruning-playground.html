@@ -645,15 +645,16 @@
      TAB NAV
 ════════════════════════════════════════════════════════════════════════════ -->
 <div class="tab-nav">
-  <button class="tab-btn active" onclick="switchTab('run')">⚙ Workflow &amp; Run</button>
-  <button class="tab-btn" onclick="switchTab('outputs')">📂 Outputs &amp; Manifests</button>
+  <button class="tab-btn active" onclick="switchTab('config')">⚙ Config</button>
+  <button class="tab-btn" onclick="switchTab('commands')">⌘ Commands</button>
+  <button class="tab-btn" onclick="switchTab('outputs')">📂 Outputs</button>
   <button class="tab-btn" onclick="switchTab('playground')">🔬 Playground</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      TAB 1 · CONFIG & RUN
 ════════════════════════════════════════════════════════════════════════════ -->
-<div id="tab-run" class="tab-content active">
+<div id="tab-config" class="tab-content active">
 
   <!-- Config file bar -->
   <div class="config-bar">
@@ -675,7 +676,7 @@
       <div class="panel-body">
 
         <!-- [run] -->
-        <div class="form-section">
+        <div class="form-section" style="display:none">
           <div class="form-section-header">Canonical workflow</div>
           <div style="font-size:12px;color:var(--muted)">
             Serious Gemma4 data creation is Hugging Face Jobs running the normal config-driven CLI. This local UI never launches paid jobs; it only shows copy-visible commands/scripts and can run the local CLI subprocess.
@@ -685,35 +686,35 @@
           </div>
           <div class="field">
             <label class="field-label">Canonical in-job command</label>
-            <div class="command-box" id="canonicalCommandBox">loading…</div>
+            <div class="command-box" id="legacyCanonicalCommandBox">loading…</div>
           </div>
           <label class="checkbox-row">
-            <input type="checkbox" id="persistArtifacts" onchange="refreshCommandPreview()" />
+              <input type="checkbox" id="legacyPersistArtifacts" onchange="refreshCommandPreview()" />
             Persist job artifacts for local download (scratch repo, not dataset release)
           </label>
           <div class="form-row">
             <div class="field">
               <label class="field-label">scratch artifact repo id</label>
-              <input type="text" id="artifactRepoId" value="avreymi/reasoning-pruning-job-artifacts" oninput="refreshCommandPreview()" />
+              <input type="text" id="legacyArtifactRepoId" value="avreymi/reasoning-pruning-job-artifacts" oninput="refreshCommandPreview()" />
             </div>
             <div class="field">
               <label class="field-label">job label used in prefix (not actual HF job id)</label>
-              <input type="text" id="artifactLabel" placeholder="bbh-logical-deduction-preview" oninput="refreshCommandPreview()" />
+              <input type="text" id="legacyArtifactLabel" placeholder="bbh-logical-deduction-preview" oninput="refreshCommandPreview()" />
             </div>
           </div>
           <div class="field">
             <label class="field-label">artifact repo prefix/path</label>
-            <input type="text" id="artifactPrefix" placeholder="job-artifacts/<label>/outputs/datasets" oninput="refreshCommandPreview()" />
+            <input type="text" id="legacyArtifactPrefix" placeholder="job-artifacts/<label>/outputs/datasets" oninput="refreshCommandPreview()" />
           </div>
           <div class="field">
             <label class="field-label">Copy-visible HF Jobs script / command</label>
-            <div class="command-box" id="hfJobsScriptBox">loading…</div>
+            <div class="command-box" id="legacyHfJobsScriptBox">loading…</div>
           </div>
           <div class="btn-row">
-            <button class="btn-copy" onclick="copyVisible('canonicalCommandBox', this)">Copy visible canonical command</button>
-            <button class="btn-copy" onclick="copyVisible('hfJobsScriptBox', this)">Copy visible HF Jobs script</button>
+            <button class="btn-copy" onclick="copyVisible('legacyCanonicalCommandBox', this)">Copy visible canonical command</button>
+            <button class="btn-copy" onclick="copyVisible('legacyHfJobsScriptBox', this)">Copy visible HF Jobs script</button>
           </div>
-          <div class="record-meta" id="envStatusBadges">
+          <div class="record-meta" id="legacyEnvStatusBadges">
             <span>HF_TOKEN: unknown</span><span>GEMINI_API_KEY: unknown</span>
           </div>
         </div>
@@ -729,6 +730,10 @@
               <label class="field-label">random_seed</label>
               <input type="number" id="cfg_run_seed" placeholder="1" min="0" />
             </div>
+          </div>
+          <div class="field">
+            <label class="field-label">format_version</label>
+            <input type="text" id="cfg_run_format_version" placeholder="1.0" />
           </div>
         </div>
 
@@ -784,6 +789,8 @@
               <label class="field-label">provider</label>
               <select id="cfg_gen_provider">
                 <option value="gemini">gemini</option>
+                <option value="transformers">transformers</option>
+                <option value="huggingface">huggingface</option>
                 <option value="openai">openai</option>
                 <option value="openai-compatible">openai-compatible</option>
                 <option value="local">local</option>
@@ -808,9 +815,19 @@
               <input type="number" id="cfg_gen_retries" placeholder="1" min="0" />
             </div>
           </div>
+          <div class="form-row triple" style="margin-top:4px">
+            <div class="field"><label class="field-label">top_p</label><input type="number" id="cfg_gen_top_p" placeholder="0.95" step="0.01" min="0" max="1" /></div>
+            <div class="field"><label class="field-label">timeout</label><input type="number" id="cfg_gen_timeout" placeholder="120" min="1" /></div>
+            <div class="field"><label class="field-label">model_revision</label><input type="text" id="cfg_gen_model_revision" placeholder="commit/revision" /></div>
+          </div>
           <div class="field" style="margin-top:4px">
             <label class="field-label">base_url (optional)</label>
             <input type="text" id="cfg_gen_base_url" placeholder="" />
+          </div>
+          <div class="form-row triple" style="margin-top:4px">
+            <div class="field"><label class="field-label">dtype</label><input type="text" id="cfg_gen_dtype" placeholder="bfloat16" /></div>
+            <div class="field"><label class="field-label">device_map</label><input type="text" id="cfg_gen_device_map" placeholder="auto" /></div>
+            <div class="field"><label class="field-label">transformers_loader</label><input type="text" id="cfg_gen_transformers_loader" placeholder="auto_model_for_image_text_to_text" /></div>
           </div>
         </div>
 
@@ -822,6 +839,8 @@
               <label class="field-label">provider</label>
               <select id="cfg_dec_provider">
                 <option value="gemini">gemini</option>
+                <option value="transformers">transformers</option>
+                <option value="huggingface">huggingface</option>
                 <option value="openai">openai</option>
                 <option value="openai-compatible">openai-compatible</option>
                 <option value="local">local</option>
@@ -846,6 +865,10 @@
               <input type="number" id="cfg_dec_retries" placeholder="1" min="0" />
             </div>
           </div>
+          <div class="form-row" style="margin-top:4px">
+            <div class="field"><label class="field-label">top_p</label><input type="number" id="cfg_dec_top_p" placeholder="optional" step="0.01" min="0" max="1" /></div>
+            <div class="field"><label class="field-label">timeout</label><input type="number" id="cfg_dec_timeout" placeholder="120" min="1" /></div>
+          </div>
           <div class="field" style="margin-top:4px">
             <label class="field-label">base_url (optional)</label>
             <input type="text" id="cfg_dec_base_url" placeholder="" />
@@ -868,6 +891,10 @@
               <label class="field-label">max_span_length</label>
               <input type="number" id="cfg_iter_span" placeholder="2" min="1" />
             </div>
+          </div>
+          <div class="field">
+            <label class="field-label">stop_statuses (comma-separated)</label>
+            <input type="text" id="cfg_iter_stop_statuses" placeholder="no_prune,stop" />
           </div>
         </div>
 
@@ -899,39 +926,43 @@
             <label class="field-label">hf_upload_repo (optional)</label>
             <input type="text" id="cfg_out_hf_repo" placeholder="" />
           </div>
+          <div class="field" style="margin-top:4px">
+            <label class="field-label">hf_upload_path (optional)</label>
+            <input type="text" id="cfg_out_hf_path" placeholder="" />
+          </div>
           <label class="checkbox-row" style="margin-top:4px">
             <input type="checkbox" id="cfg_out_hf_private" />
             hf_private
           </label>
         </div>
 
-        <div class="form-section">
+        <div class="form-section" style="display:none">
           <div class="form-section-header">Visible local command</div>
           <div style="font-size:12px;color:var(--muted)">The run button executes exactly this local command. Unsaved form edits are not used by the CLI; save explicitly first.</div>
           <div class="field">
             <label class="field-label">Optional --limit override</label>
-            <input type="number" id="runLimit" placeholder="blank = config value" min="1" oninput="refreshCommandPreview()" />
+            <input type="number" id="legacyRunLimit" placeholder="blank = config value" min="1" oninput="refreshCommandPreview()" />
           </div>
           <div class="field">
             <label class="field-label">Optional --output override under outputs/</label>
-            <input type="text" id="runOutputPath" placeholder="outputs/datasets/example.jsonl" oninput="refreshCommandPreview()" />
+            <input type="text" id="legacyRunOutputPath" placeholder="outputs/datasets/example.jsonl" oninput="refreshCommandPreview()" />
           </div>
           <label class="checkbox-row">
-            <input type="checkbox" id="uploadToHF" onchange="refreshCommandPreview()" />
+            <input type="checkbox" id="legacyUploadToHF" onchange="refreshCommandPreview()" />
             Request Hub upload flag (requires explicit approval below)
           </label>
           <label class="checkbox-row">
-            <input type="checkbox" id="uploadApproval" onchange="refreshCommandPreview()" />
+            <input type="checkbox" id="legacyUploadApproval" onchange="refreshCommandPreview()" />
             I have explicit approval to upload this dataset to Hugging Face Hub
           </label>
           <div class="field">
             <label class="field-label">Type UPLOAD to include --upload-to-hf</label>
-            <input type="text" id="uploadPhrase" placeholder="UPLOAD" oninput="refreshCommandPreview()" />
+            <input type="text" id="legacyUploadPhrase" placeholder="UPLOAD" oninput="refreshCommandPreview()" />
           </div>
-          <div class="warning-box" id="dirtyWarning" style="display:none">Unsaved config edits detected. Save first; the CLI uses config/{name}.toml, not unsaved form state.</div>
-          <div class="command-box" id="localCommandBox">Select and load a config to preview the local command.</div>
+          <div class="warning-box" id="legacyDirtyWarning" style="display:none">Unsaved config edits detected. Save first; the CLI uses config/{name}.toml, not unsaved form state.</div>
+          <div class="command-box" id="legacyLocalCommandBox">Select and load a config to preview the local command.</div>
           <div class="btn-row">
-            <button class="btn-copy" onclick="copyVisible('localCommandBox', this)">Copy visible local command</button>
+            <button class="btn-copy" onclick="copyVisible('legacyLocalCommandBox', this)">Copy visible local command</button>
           </div>
         </div>
 
@@ -1002,15 +1033,15 @@
       </div><!-- /prompt accordion -->
 
       <!-- Execution controls -->
-      <div class="exec-panel">
+      <div class="exec-panel" style="display:none">
         <div class="exec-header">
-          <button class="btn-run" id="runBtn" onclick="startRun()">▶ Run visible local command</button>
-          <button onclick="stopRun()" id="stopBtn" style="display:none" class="btn-danger">■ Stop subprocess</button>
-          <span class="run-status" id="runStatus">idle</span>
+          <button class="btn-run" id="legacyRunBtn" onclick="startRun()">▶ Run visible local command</button>
+          <button onclick="stopRun()" id="legacyStopBtn" style="display:none" class="btn-danger">■ Stop subprocess</button>
+          <span class="run-status" id="legacyRunStatus">idle</span>
           <div style="flex:1"></div>
           <button onclick="clearLog()" style="font-size:11px">Clear log</button>
         </div>
-        <div class="log-viewer" id="logViewer"><span style="color:var(--muted)">Run output will appear here…</span></div>
+        <div class="log-viewer" id="legacyLogViewer"><span style="color:var(--muted)">Run output will appear here…</span></div>
       </div>
 
     </div><!-- /right panel -->
@@ -1019,7 +1050,62 @@
 </div><!-- /tab-run -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
-     TAB 2 · OUTPUTS
+     TAB 2 · COMMANDS
+════════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-commands" class="tab-content">
+  <div class="main">
+    <div class="panel">
+      <div class="panel-header">⌘ Command-backed controls</div>
+      <div class="panel-body">
+        <div class="form-section">
+          <div class="form-section-header">Local UI server</div>
+          <div style="font-size:12px;color:var(--muted)">Copy-only helper for starting this optional local UI.</div>
+          <div class="command-box" id="localServerCommandBox">loading server command preview…</div>
+          <button class="btn-copy" onclick="copyVisible('localServerCommandBox', this)">Copy visible server command</button>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-header">Create pruning dataset · local CLI</div>
+          <div style="font-size:12px;color:var(--muted)">Uses the real <code>scripts/create_pruning_dataset.py</code> path. Save Config edits before running.</div>
+          <div class="field"><label class="field-label">Optional --limit override</label><input type="number" id="runLimit" placeholder="blank = config value" min="1" oninput="refreshCommandPreview()" /></div>
+          <div class="field"><label class="field-label">Optional --output override under outputs/</label><input type="text" id="runOutputPath" placeholder="outputs/datasets/example.jsonl" oninput="refreshCommandPreview()" /></div>
+          <label class="checkbox-row"><input type="checkbox" id="uploadToHF" onchange="refreshCommandPreview()" /> Request Hub upload flag (requires explicit approval below)</label>
+          <label class="checkbox-row"><input type="checkbox" id="uploadApproval" onchange="refreshCommandPreview()" /> I have explicit approval to upload this dataset to Hugging Face Hub</label>
+          <div class="field"><label class="field-label">Type UPLOAD to include --upload-to-hf</label><input type="text" id="uploadPhrase" placeholder="UPLOAD" oninput="refreshCommandPreview()" /></div>
+          <div class="warning-box" id="dirtyWarning" style="display:none">Unsaved config edits detected. Save first; the CLI uses config/{name}.toml, not unsaved form state.</div>
+          <div class="command-box" id="localCommandBox">Select and load a config to preview the local command.</div>
+          <button class="btn-copy" onclick="copyVisible('localCommandBox', this)">Copy visible local command</button>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-header">HF Jobs launcher · dry-run only</div>
+          <div class="warning-box">Paid <code>--launch</code> is intentionally unavailable here. This executes only the default no-launch dry-run of <code>scripts/run_hf_job.py</code>.</div>
+          <div class="form-row"><div class="field"><label class="field-label">--config</label><input id="hfJobConfig" type="text" value="config/bbh-logical-deduction-gemma4-hf-preview.toml" oninput="refreshHFJobPreview()" /></div><div class="field"><label class="field-label">--repo-url</label><input id="hfJobRepoUrl" type="text" value="https://github.com/avrymi-asraf/reasoning-pruning-data-gen.git" oninput="refreshHFJobPreview()" /></div></div>
+          <div class="form-row"><div class="field"><label class="field-label">--ref</label><input id="hfJobRef" type="text" oninput="refreshHFJobPreview()" /></div><div class="field"><label class="field-label">--image</label><input id="hfJobImage" type="text" value="ghcr.io/astral-sh/uv:python3.11-bookworm" oninput="refreshHFJobPreview()" /></div></div>
+          <div class="form-row triple"><div class="field"><label class="field-label">--flavor</label><input id="hfJobFlavor" type="text" value="a10g-large" oninput="refreshHFJobPreview()" /></div><div class="field"><label class="field-label">--timeout</label><input id="hfJobTimeout" type="text" value="7200" oninput="refreshHFJobPreview()" /></div><div class="field"><label class="field-label">--hf-cli</label><select id="hfJobCli" onchange="refreshHFJobPreview()"><option value="auto">auto</option><option value="uvx">uvx</option><option value="hf">hf</option></select></div></div>
+          <label class="checkbox-row"><input type="checkbox" id="hfJobPersistArtifacts" onchange="refreshHFJobPreview()" /> --persist-artifacts</label>
+          <div class="form-row"><div class="field"><label class="field-label">--artifact-repo</label><input id="hfJobArtifactRepo" type="text" value="avreymi/reasoning-pruning-job-artifacts" oninput="refreshHFJobPreview()" /></div><div class="field"><label class="field-label">--artifact-label</label><input id="hfJobArtifactLabel" type="text" oninput="refreshHFJobPreview()" /></div></div>
+          <div class="field"><label class="field-label">--artifact-prefix</label><input id="hfJobArtifactPrefix" type="text" oninput="refreshHFJobPreview()" /></div>
+          <div class="command-box" id="hfJobCommandBox">loading…</div>
+          <div class="btn-row"><button class="btn-copy" onclick="copyVisible('hfJobCommandBox', this)">Copy visible dry-run command</button><button class="btn-run" onclick="runHFJobDryRun()">Run dry-run</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Command logs</div>
+      <div class="panel-body">
+        <div class="record-meta" id="envStatusBadges"><span>HF_TOKEN: unknown</span><span>GEMINI_API_KEY: unknown</span></div>
+        <div class="command-box" id="canonicalCommandBox">loading…</div>
+        <div class="command-box" id="hfJobsScriptBox">loading…</div>
+        <div class="exec-panel"><div class="exec-header"><button class="btn-run" id="runBtn" onclick="startRun()">▶ Run visible local command</button><button onclick="stopRun()" id="stopBtn" style="display:none" class="btn-danger">■ Stop subprocess</button><span class="run-status" id="runStatus">idle</span><div style="flex:1"></div><button onclick="clearLog()" style="font-size:11px">Clear log</button></div><div class="log-viewer" id="logViewer"><span style="color:var(--muted)">Run output will appear here…</span></div></div>
+        <div class="log-viewer" id="hfJobLogViewer"><span style="color:var(--muted)">HF job dry-run output will appear here…</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     TAB 3 · OUTPUTS
 ════════════════════════════════════════════════════════════════════════════ -->
 <div id="tab-outputs" class="tab-content">
   <div class="main">
@@ -1188,7 +1274,7 @@
 
 // ─── Tab system ───────────────────────────────────────────────────────────────
 
-const TABS = ['run', 'outputs', 'playground'];
+const TABS = ['config', 'commands', 'outputs', 'playground'];
 
 function switchTab(name) {
   TABS.forEach(t => {
@@ -1220,12 +1306,13 @@ async function checkServer() {
 
 let _configDirty = false;
 let _lastPreview = null;
+let _loadedConfigData = {};
 
 async function loadConfigList() {
   try {
     const r = await fetch('/api/configs');
     if (!r.ok) return;
-    const { configs } = await r.json();
+    const { configs, canonical_config } = await r.json();
     const sel = document.getElementById('configSelect');
     sel.innerHTML = '<option value="">— select —</option>';
     configs.forEach(c => {
@@ -1234,6 +1321,10 @@ async function loadConfigList() {
       opt.textContent = c.name;
       sel.appendChild(opt);
     });
+    if (canonical_config && !document.getElementById('configNameInput').value) {
+      document.getElementById('configNameInput').value = canonical_config;
+      sel.value = canonical_config;
+    }
   } catch {}
 }
 
@@ -1251,9 +1342,11 @@ async function loadSelectedConfig() {
     const r = await fetch(`/api/config/${encodeURIComponent(name)}`);
     if (!r.ok) { alert(`Config '${name}' not found.`); return; }
     const { data } = await r.json();
+    _loadedConfigData = structuredClone(data || {});
     populateForm(data);
     document.getElementById('configNameInput').value = name;
     document.getElementById('configSelect').value = name;
+    document.getElementById('hfJobConfig').value = `config/${name}.toml`;
     setDirty(false);
     await refreshCommandPreview();
   } catch (e) { alert('Failed to load config: ' + e); }
@@ -1262,6 +1355,7 @@ async function loadSelectedConfig() {
 function populateForm(d) {
   const run = d.run || {};
   setValue('cfg_run_name', run.run_name ?? '');
+  setValue('cfg_run_format_version', run.format_version ?? '');
   setValue('cfg_run_seed', run.random_seed ?? '');
 
   const src = d.source || {};
@@ -1275,18 +1369,28 @@ function populateForm(d) {
   onSourceTypeChange();
 
   const gen = d.generation || {};
+  ensureSelectOption('cfg_gen_provider', gen.provider ?? 'gemini');
   setValue('cfg_gen_provider', gen.provider ?? 'gemini');
   setValue('cfg_gen_model', gen.model ?? '');
+  setValue('cfg_gen_model_revision', gen.model_revision ?? '');
   setValue('cfg_gen_temp', gen.temperature ?? '');
+  setValue('cfg_gen_top_p', gen.top_p ?? '');
   setValue('cfg_gen_max_tokens', gen.max_tokens ?? '');
+  setValue('cfg_gen_timeout', gen.timeout ?? '');
   setValue('cfg_gen_retries', gen.retries ?? '');
   setValue('cfg_gen_base_url', gen.base_url ?? '');
+  setValue('cfg_gen_dtype', gen.dtype ?? '');
+  setValue('cfg_gen_device_map', gen.device_map ?? '');
+  setValue('cfg_gen_transformers_loader', gen.transformers_loader ?? '');
 
   const dec = d.decision || {};
+  ensureSelectOption('cfg_dec_provider', dec.provider ?? 'gemini');
   setValue('cfg_dec_provider', dec.provider ?? 'gemini');
   setValue('cfg_dec_model', dec.model ?? '');
   setValue('cfg_dec_temp', dec.temperature ?? '');
+  setValue('cfg_dec_top_p', dec.top_p ?? '');
   setValue('cfg_dec_max_tokens', dec.max_tokens ?? '');
+  setValue('cfg_dec_timeout', dec.timeout ?? '');
   setValue('cfg_dec_retries', dec.retries ?? '');
   setValue('cfg_dec_base_url', dec.base_url ?? '');
 
@@ -1294,6 +1398,7 @@ function populateForm(d) {
   setValue('cfg_iter_max_depth', it.max_depth ?? '');
   setValue('cfg_iter_min_units', it.min_generated_units ?? '');
   setValue('cfg_iter_span', it.max_removable_span_length ?? '');
+  setValue('cfg_iter_stop_statuses', (it.stop_statuses ?? []).join(','));
 
   const q = d.quality || {};
   document.getElementById('cfg_quality_final_answer').checked = !!q.require_final_answer_preservation;
@@ -1303,6 +1408,7 @@ function populateForm(d) {
   setValue('cfg_out_accepted', out.accepted_path ?? '');
   setValue('cfg_out_rejected', out.rejected_path ?? '');
   setValue('cfg_out_hf_repo', out.hf_upload_repo ?? '');
+  setValue('cfg_out_hf_path', out.hf_upload_path ?? '');
   document.getElementById('cfg_out_hf_private').checked = !!out.hf_private;
 
   const p = d.prompts || {};
@@ -1314,13 +1420,15 @@ function populateForm(d) {
 }
 
 function collectFormData() {
-  return {
-    run: {
+  const data = structuredClone(_loadedConfigData || {});
+  data.run = {
+      ...(data.run || {}),
       run_name:       str('cfg_run_name') || defaultRunName(),
-      format_version: '1.0',
+      format_version: str('cfg_run_format_version') || '1.0',
       random_seed: num('cfg_run_seed') ?? 1,
-    },
-    source: {
+    };
+  data.source = {
+      ...(data.source || {}),
       source:         str('cfg_source_type'),
       limit:          num('cfg_source_limit') ?? 1,
       hf_dataset:     str('cfg_hf_dataset'),
@@ -1328,50 +1436,62 @@ function collectFormData() {
       hf_split:       str('cfg_hf_split') || 'train',
       hf_text_field:  str('cfg_hf_text_field'),
       answer_fields:  str('cfg_answer_fields').split(',').map(s => s.trim()).filter(Boolean),
-    },
-    output: {
+    };
+  data.output = {
+      ...(data.output || {}),
       accepted_path: str('cfg_out_accepted') || 'outputs/datasets/run.jsonl',
       rejected_path: str('cfg_out_rejected') || '',
       hf_upload_repo: str('cfg_out_hf_repo') || '',
-      hf_upload_path: '',
+      hf_upload_path: str('cfg_out_hf_path') || '',
       hf_private: document.getElementById('cfg_out_hf_private').checked,
-    },
-    generation: {
+    };
+  data.generation = {
+      ...(data.generation || {}),
       provider:    str('cfg_gen_provider'),
       model:       str('cfg_gen_model') || 'gemini/gemini-2.5-flash-lite',
+      model_revision: str('cfg_gen_model_revision'),
       base_url:    str('cfg_gen_base_url'),
       temperature: numF('cfg_gen_temp') ?? 0.2,
+      top_p:       numF('cfg_gen_top_p'),
       max_tokens:  num('cfg_gen_max_tokens') ?? 1200,
-      timeout:     120,
+      timeout:     num('cfg_gen_timeout') ?? 120,
       retries:     num('cfg_gen_retries') ?? 1,
-    },
-    decision: {
+      dtype:       str('cfg_gen_dtype'),
+      device_map:  str('cfg_gen_device_map'),
+      transformers_loader: str('cfg_gen_transformers_loader'),
+    };
+  data.decision = {
+      ...(data.decision || {}),
       provider:    str('cfg_dec_provider'),
       model:       str('cfg_dec_model') || 'gemini/gemini-2.5-flash-lite',
       base_url:    str('cfg_dec_base_url'),
       temperature: numF('cfg_dec_temp') ?? 0.0,
+      top_p:       numF('cfg_dec_top_p'),
       max_tokens:  num('cfg_dec_max_tokens') ?? 600,
-      timeout:     120,
+      timeout:     num('cfg_dec_timeout') ?? 120,
       retries:     num('cfg_dec_retries') ?? 1,
-    },
-    iteration: {
+    };
+  data.iteration = {
+      ...(data.iteration || {}),
       max_depth:                 num('cfg_iter_max_depth') ?? 1,
       min_generated_units:       num('cfg_iter_min_units') ?? 3,
       max_removable_span_length: num('cfg_iter_span') ?? 2,
-      stop_statuses:             ['no_prune', 'stop'],
-    },
-    quality: {
+      stop_statuses:             str('cfg_iter_stop_statuses').split(',').map(s => s.trim()).filter(Boolean),
+    };
+  data.quality = {
+      ...(data.quality || {}),
       require_final_answer_preservation: document.getElementById('cfg_quality_final_answer').checked,
       reject_obvious_incoherence:        document.getElementById('cfg_quality_incoherence').checked,
-    },
-    prompts: {
+    };
+  data.prompts = {
+      ...(data.prompts || {}),
       generation_system:            str('cfg_p_gen_sys'),
       generation_user_template:     str('cfg_p_gen_user'),
       continuation_user_template:   str('cfg_p_cont_user'),
       decision_system:              str('cfg_p_dec_sys'),
       decision_user_template:       str('cfg_p_dec_user'),
-    },
-  };
+    };
+  return data;
 }
 
 function defaultRunName() {
@@ -1423,17 +1543,18 @@ function setDirty(isDirty) {
 }
 
 function commandRequestBody() {
+  const configName = document.getElementById('configNameInput').value.trim() || document.getElementById('configSelect').value;
   return {
-    config_name: document.getElementById('configNameInput').value.trim() || document.getElementById('configSelect').value,
+    config_name: configName,
     limit: num('runLimit'),
     output_path: str('runOutputPath') || null,
     upload_to_hf: document.getElementById('uploadToHF').checked,
     upload_approval: document.getElementById('uploadApproval').checked,
     upload_phrase: str('uploadPhrase') || null,
-    persist_artifacts: document.getElementById('persistArtifacts').checked,
-    artifact_repo_id: str('artifactRepoId') || 'avreymi/reasoning-pruning-job-artifacts',
-    artifact_prefix: str('artifactPrefix') || null,
-    artifact_label: str('artifactLabel') || null,
+    persist_artifacts: document.getElementById('hfJobPersistArtifacts').checked,
+    artifact_repo_id: str('hfJobArtifactRepo') || 'avreymi/reasoning-pruning-job-artifacts',
+    artifact_prefix: str('hfJobArtifactPrefix') || null,
+    artifact_label: str('hfJobArtifactLabel') || configName,
   };
 }
 
@@ -1455,13 +1576,63 @@ async function refreshCommandPreview() {
     document.getElementById('localCommandBox').textContent = _lastPreview.local_command;
     document.getElementById('canonicalCommandBox').textContent = _lastPreview.canonical_command;
     document.getElementById('hfJobsScriptBox').textContent = _lastPreview.hf_jobs_script;
-    document.getElementById('artifactPrefix').placeholder = _lastPreview.artifact_prefix || 'job-artifacts/<label>/outputs/datasets';
+    document.getElementById('hfJobArtifactPrefix').placeholder = _lastPreview.artifact_prefix || 'job-artifacts/<label>/outputs/datasets';
     document.getElementById('artifactSyncCommandBox').textContent = _lastPreview.artifact_sync_command;
     renderEnvStatus(_lastPreview.env_presence);
+    refreshHFJobPreview();
   } catch (e) {
     _lastPreview = null;
     document.getElementById('localCommandBox').textContent = `Preview error: ${e}`;
   }
+}
+
+async function loadLocalServerPreview() {
+  const box = document.getElementById('localServerCommandBox');
+  try {
+    const r = await fetch('/api/local-server/preview');
+    if (!r.ok) { box.textContent = `Preview error: ${await r.text()}`; return; }
+    box.textContent = (await r.json()).command;
+  } catch (e) {
+    box.textContent = `Preview error: ${e}`;
+  }
+}
+
+function hfJobRequestBody() {
+  return {
+    config: str('hfJobConfig') || `config/${document.getElementById('configNameInput').value.trim()}.toml`,
+    repo_url: str('hfJobRepoUrl') || 'https://github.com/avrymi-asraf/reasoning-pruning-data-gen.git',
+    ref: str('hfJobRef'),
+    image: str('hfJobImage') || 'ghcr.io/astral-sh/uv:python3.11-bookworm',
+    flavor: str('hfJobFlavor') || 'a10g-large',
+    timeout: str('hfJobTimeout') || '7200',
+    persist_artifacts: document.getElementById('hfJobPersistArtifacts').checked,
+    artifact_repo: str('hfJobArtifactRepo') || 'avreymi/reasoning-pruning-job-artifacts',
+    artifact_prefix: str('hfJobArtifactPrefix'),
+    artifact_label: str('hfJobArtifactLabel'),
+    hf_cli: str('hfJobCli') || 'auto',
+    launch: false,
+  };
+}
+
+async function refreshHFJobPreview() {
+  try {
+    const r = await fetch('/api/hf-job/preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(hfJobRequestBody()),
+    });
+    document.getElementById('hfJobCommandBox').textContent = r.ok ? (await r.json()).command : `Preview error: ${await r.text()}`;
+  } catch (e) { document.getElementById('hfJobCommandBox').textContent = `Preview error: ${e}`; }
+}
+
+async function runHFJobDryRun() {
+  const log = document.getElementById('hfJobLogViewer');
+  log.textContent = 'Running HF job dry-run…\n';
+  const r = await fetch('/api/hf-job/dry-run', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(hfJobRequestBody()),
+  });
+  const text = await r.text();
+  if (!r.ok) { log.textContent += `Dry-run failed: ${text}\n`; return; }
+  const data = JSON.parse(text);
+  log.textContent += `$ ${data.command}\n\n${data.stdout || ''}${data.stderr || ''}\nexit ${data.returncode}`;
 }
 
 async function loadEnvStatus() {
@@ -1490,8 +1661,8 @@ function copyVisible(elementId, btn) {
 }
 
 function installDirtyTracking() {
-  document.querySelectorAll('#tab-run input, #tab-run select, #tab-run textarea').forEach(el => {
-    if (['runLimit', 'runOutputPath', 'uploadToHF', 'uploadApproval', 'uploadPhrase', 'persistArtifacts', 'artifactRepoId', 'artifactPrefix', 'artifactLabel', 'configSelect', 'configNameInput'].includes(el.id)) return;
+  document.querySelectorAll('#tab-config input, #tab-config select, #tab-config textarea').forEach(el => {
+    if (['configSelect', 'configNameInput'].includes(el.id)) return;
     el.addEventListener('input', () => setDirty(true));
     el.addEventListener('change', () => setDirty(true));
   });
@@ -1781,6 +1952,18 @@ function setValue(id, val) {
     if (opt) el.value = String(val);
   } else {
     el.value = val ?? '';
+  }
+}
+
+function ensureSelectOption(id, val) {
+  const el = document.getElementById(id);
+  if (!el || el.tagName !== 'SELECT') return;
+  const value = String(val ?? '');
+  if (value && ![...el.options].some(o => o.value === value)) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = `${value} (loaded)`;
+    el.appendChild(opt);
   }
 }
 
@@ -2101,9 +2284,10 @@ checkServer().then(ok => {
   if (ok) {
     loadConfigList().then(() => {
       document.getElementById('configNameInput').value = document.getElementById('configNameInput').value || 'bbh-logical-deduction-gemma4-hf-preview';
-      refreshCommandPreview();
+      loadSelectedConfig();
     });
     loadEnvStatus();
+    loadLocalServerPreview();
   }
 });
 </script>

@@ -19,14 +19,43 @@ Use this HF Jobs shape:
 - Action: run the normal config command above
 - Logs: print sanitized manifest, accepted, and rejected summaries only; never print secret values
 
-Recent successful preview: HF Job `6a106a46b33ece92698c06f8` accepted `3`, rejected `0`, using generation model `avreymi/reasoning-pruning-gemma-4-E2B-it` and decision model `gemini/gemini-2.5-flash-lite`.
+Artifact-persistence proof after the HF Jobs upload fix: HF Job [`6a11634de3c0b51e1ca5db6a`](https://huggingface.co/jobs/avreymi/6a11634de3c0b51e1ca5db6a) completed successfully, and scratch artifact upload/download/sync worked with `accepted=0`, `rejected=30`, and `hf_release.upload_requested=false`. This proves artifact workflow only, not data quality. Earlier successful data-quality preview: HF Job `6a106a46b33ece92698c06f8` accepted `3`, rejected `0`, using generation model `avreymi/reasoning-pruning-gemma-4-E2B-it` and decision model `gemini/gemini-2.5-flash-lite`.
+
+### Transparent HF Jobs launcher
+
+`scripts/run_hf_job.py` is an operational launcher for the workflow above. It prints the exact in-job `bash -c` script and local HF CLI command, defaults to dry-run, and only launches paid compute when `--launch` is present. In auto mode it prefers executable `uvx --from huggingface_hub hf`, then falls back to a usable `hf` executable, and the printed command matches the selected launcher. It does not replace `scripts/create_pruning_dataset.py` and does not create a side generation pipeline.
+
+Preview the command without launching:
+
+```bash
+uv run python scripts/run_hf_job.py
+```
+
+Launch the paid HF Job after reviewing the printed command:
+
+```bash
+uv run python scripts/run_hf_job.py --launch
+```
+
+Recommended preview launch when you need to retrieve accepted/rejected/manifest files later:
+
+```bash
+uv run python scripts/run_hf_job.py \
+  --persist-artifacts \
+  --artifact-label bbh-logical-deduction-preview-001 \
+  --launch
+```
+
+HF Jobs job filesystems are ephemeral and there is no direct job filesystem download. The runner writes outputs inside the job under the TOML-configured paths, normally `outputs/datasets/`; those files become local only if you persist them during the job and then sync/download them. `--persist-artifacts` appends visible in-job `uvx --from huggingface_hub hf upload ...` commands that copy accepted JSONL, rejected/audit JSONL, and the manifest to a private scratch dataset repo for retrieval by the local UI/server sync or equivalent `hf download` commands. Do not use bare `hf upload` inside the job image; that caused job `6a115610b33ece92698c13af` to fail with exit 127 after pipeline outputs were written. This scratch persistence is for inspection only and is separate from dataset release: `--upload-to-hf` remains the explicit release gate and is not added by the launcher.
+
+Secrets are passed to HF Jobs by name (`HF_TOKEN`, `GEMINI_API_KEY`). The launcher prints whether each secret is present, but never prints secret values.
 
 ## Quick preview loop
 
 1. Edit the TOML config, especially source limits, output path, model settings, prompts, and quality gates.
 2. Keep limits small for preview runs; `config/bbh-logical-deduction-gemma4-hf-preview.toml` is the current quick iteration config.
-3. Launch a small HF Job with the canonical command.
-4. Inspect accepted JSONL, rejected/audit JSONL, and `*.manifest.json` summaries.
+3. Dry-run `scripts/run_hf_job.py`, then launch a small HF Job; use `--persist-artifacts --artifact-label ...` if you need files back locally.
+4. Inspect accepted JSONL, rejected/audit JSONL, and `*.manifest.json` summaries after persisting/syncing them.
 5. Adjust the config and rerun previews until the accepted/rejected examples look right.
 6. Scale only after the preview summaries are clean.
 
