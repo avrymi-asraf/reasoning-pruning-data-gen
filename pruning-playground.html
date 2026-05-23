@@ -587,6 +587,28 @@
 
   .empty-state { color: var(--muted); font-size: 12px; font-style: italic; text-align: center; padding: 20px 0; }
 
+  .command-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.6;
+    padding: 8px 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .warning-box {
+    background: rgba(245,197,67,0.08);
+    border: 1px solid rgba(245,197,67,0.35);
+    border-radius: var(--radius);
+    color: var(--yellow);
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
   .pill {
     display: inline-block;
     background: var(--surface2);
@@ -623,8 +645,8 @@
      TAB NAV
 ════════════════════════════════════════════════════════════════════════════ -->
 <div class="tab-nav">
-  <button class="tab-btn active" onclick="switchTab('run')">⚙ Config &amp; Run</button>
-  <button class="tab-btn" onclick="switchTab('outputs')">📂 Outputs</button>
+  <button class="tab-btn active" onclick="switchTab('run')">⚙ Workflow &amp; Run</button>
+  <button class="tab-btn" onclick="switchTab('outputs')">📂 Outputs &amp; Manifests</button>
   <button class="tab-btn" onclick="switchTab('playground')">🔬 Playground</button>
 </div>
 
@@ -653,6 +675,49 @@
       <div class="panel-body">
 
         <!-- [run] -->
+        <div class="form-section">
+          <div class="form-section-header">Canonical workflow</div>
+          <div style="font-size:12px;color:var(--muted)">
+            Serious Gemma4 data creation is Hugging Face Jobs running the normal config-driven CLI. This local UI never launches paid jobs; it only shows copy-visible commands/scripts and can run the local CLI subprocess.
+          </div>
+          <div class="warning-box">
+            HF Job files are ephemeral: there is no direct <code>hf jobs download</code>. To retrieve future job outputs locally, enable scratch artifact persistence before copying/running the HF Jobs script.
+          </div>
+          <div class="field">
+            <label class="field-label">Canonical in-job command</label>
+            <div class="command-box" id="canonicalCommandBox">loading…</div>
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="persistArtifacts" onchange="refreshCommandPreview()" />
+            Persist job artifacts for local download (scratch repo, not dataset release)
+          </label>
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label">scratch artifact repo id</label>
+              <input type="text" id="artifactRepoId" value="avreymi/reasoning-pruning-job-artifacts" oninput="refreshCommandPreview()" />
+            </div>
+            <div class="field">
+              <label class="field-label">job label used in prefix (not actual HF job id)</label>
+              <input type="text" id="artifactLabel" placeholder="bbh-logical-deduction-preview" oninput="refreshCommandPreview()" />
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">artifact repo prefix/path</label>
+            <input type="text" id="artifactPrefix" placeholder="job-artifacts/<label>/outputs/datasets" oninput="refreshCommandPreview()" />
+          </div>
+          <div class="field">
+            <label class="field-label">Copy-visible HF Jobs script / command</label>
+            <div class="command-box" id="hfJobsScriptBox">loading…</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn-copy" onclick="copyVisible('canonicalCommandBox', this)">Copy visible canonical command</button>
+            <button class="btn-copy" onclick="copyVisible('hfJobsScriptBox', this)">Copy visible HF Jobs script</button>
+          </div>
+          <div class="record-meta" id="envStatusBadges">
+            <span>HF_TOKEN: unknown</span><span>GEMINI_API_KEY: unknown</span>
+          </div>
+        </div>
+
         <div class="form-section">
           <div class="form-section-header">[run]</div>
           <div class="form-row">
@@ -840,6 +905,36 @@
           </label>
         </div>
 
+        <div class="form-section">
+          <div class="form-section-header">Visible local command</div>
+          <div style="font-size:12px;color:var(--muted)">The run button executes exactly this local command. Unsaved form edits are not used by the CLI; save explicitly first.</div>
+          <div class="field">
+            <label class="field-label">Optional --limit override</label>
+            <input type="number" id="runLimit" placeholder="blank = config value" min="1" oninput="refreshCommandPreview()" />
+          </div>
+          <div class="field">
+            <label class="field-label">Optional --output override under outputs/</label>
+            <input type="text" id="runOutputPath" placeholder="outputs/datasets/example.jsonl" oninput="refreshCommandPreview()" />
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="uploadToHF" onchange="refreshCommandPreview()" />
+            Request Hub upload flag (requires explicit approval below)
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="uploadApproval" onchange="refreshCommandPreview()" />
+            I have explicit approval to upload this dataset to Hugging Face Hub
+          </label>
+          <div class="field">
+            <label class="field-label">Type UPLOAD to include --upload-to-hf</label>
+            <input type="text" id="uploadPhrase" placeholder="UPLOAD" oninput="refreshCommandPreview()" />
+          </div>
+          <div class="warning-box" id="dirtyWarning" style="display:none">Unsaved config edits detected. Save first; the CLI uses config/{name}.toml, not unsaved form state.</div>
+          <div class="command-box" id="localCommandBox">Select and load a config to preview the local command.</div>
+          <div class="btn-row">
+            <button class="btn-copy" onclick="copyVisible('localCommandBox', this)">Copy visible local command</button>
+          </div>
+        </div>
+
       </div>
     </div><!-- /left panel -->
 
@@ -909,13 +1004,9 @@
       <!-- Execution controls -->
       <div class="exec-panel">
         <div class="exec-header">
-          <button class="btn-run" id="runBtn" onclick="startRun()">▶ Run Pipeline</button>
-          <button onclick="stopRun()" id="stopBtn" style="display:none" class="btn-danger">■ Stop</button>
+          <button class="btn-run" id="runBtn" onclick="startRun()">▶ Run visible local command</button>
+          <button onclick="stopRun()" id="stopBtn" style="display:none" class="btn-danger">■ Stop subprocess</button>
           <span class="run-status" id="runStatus">idle</span>
-          <label class="checkbox-row" style="margin-left:4px;font-size:11px;color:var(--muted)">
-            <input type="checkbox" id="uploadToHF" />
-            upload to HF
-          </label>
           <div style="flex:1"></div>
           <button onclick="clearLog()" style="font-size:11px">Clear log</button>
         </div>
@@ -941,6 +1032,21 @@
         <button onclick="loadOutputsList()" style="font-size:11px;padding:2px 8px">Refresh</button>
       </div>
       <div class="panel-body">
+        <div class="form-section">
+          <div class="form-section-header">Sync HF Job scratch artifacts</div>
+          <div style="font-size:12px;color:var(--muted)">
+            This downloads files previously uploaded by the visible HF Jobs script's scratch artifact commands, then copies only the expected basenames into local <code>outputs/datasets/</code>. It does not upload or release a dataset.
+          </div>
+          <div class="field">
+            <label class="field-label">Equivalent hf download command</label>
+            <div class="command-box" id="artifactSyncCommandBox">Load a config to preview sync command.</div>
+          </div>
+          <div class="btn-row">
+            <button onclick="syncArtifactsToLocal()">⇩ Sync artifacts to local outputs</button>
+            <button class="btn-copy" onclick="copyVisible('artifactSyncCommandBox', this)">Copy visible sync command</button>
+          </div>
+          <div class="record-meta" id="artifactSyncStatus"><span>idle</span></div>
+        </div>
         <div class="file-list" id="fileList">
           <div class="empty-state">No output files found.<br>Run the pipeline to generate data.</div>
         </div>
@@ -974,8 +1080,9 @@
 
     <!-- LEFT PANEL: Inputs -->
     <div class="panel">
-      <div class="panel-header"><span>⬅</span> Inputs</div>
+      <div class="panel-header"><span>⬅</span> Manual pruning sandbox inputs</div>
       <div class="panel-body">
+        <div class="warning-box">This playground is manual and browser-only. It segments sample reasoning, renders a pruning prompt, and validates pasted JSON; it does not run the full pipeline or call an LLM.</div>
 
         <div>
           <div class="section-label">Task</div>
@@ -1111,6 +1218,9 @@ async function checkServer() {
 
 // ─── Config management ────────────────────────────────────────────────────────
 
+let _configDirty = false;
+let _lastPreview = null;
+
 async function loadConfigList() {
   try {
     const r = await fetch('/api/configs');
@@ -1130,6 +1240,7 @@ async function loadConfigList() {
 function onConfigSelectChange() {
   const name = document.getElementById('configSelect').value;
   document.getElementById('configNameInput').value = name;
+  refreshCommandPreview();
 }
 
 async function loadSelectedConfig() {
@@ -1143,6 +1254,8 @@ async function loadSelectedConfig() {
     populateForm(data);
     document.getElementById('configNameInput').value = name;
     document.getElementById('configSelect').value = name;
+    setDirty(false);
+    await refreshCommandPreview();
   } catch (e) { alert('Failed to load config: ' + e); }
 }
 
@@ -1281,6 +1394,8 @@ async function saveConfig() {
     if (!r.ok) { alert('Save failed.'); return; }
     await loadConfigList();
     document.getElementById('configSelect').value = name;
+    setDirty(false);
+    await refreshCommandPreview();
     appendLog(`✓ Config saved as config/${name}.toml\n`);
   } catch (e) { alert('Save error: ' + e); }
 }
@@ -1289,11 +1404,98 @@ function newConfig() {
   document.getElementById('configNameInput').value = 'my-run';
   document.getElementById('configSelect').value = '';
   // Leave form as-is so user can customise from current values
+  setDirty(true);
+  refreshCommandPreview();
 }
 
 function onSourceTypeChange() {
   const isHF = document.getElementById('cfg_source_type').value === 'hf';
   document.getElementById('hf-fields').style.display = isHF ? '' : 'none';
+  setDirty(true);
+}
+
+function setDirty(isDirty) {
+  _configDirty = isDirty;
+  const warning = document.getElementById('dirtyWarning');
+  if (warning) warning.style.display = isDirty ? '' : 'none';
+  const runBtn = document.getElementById('runBtn');
+  if (runBtn) runBtn.disabled = isDirty;
+}
+
+function commandRequestBody() {
+  return {
+    config_name: document.getElementById('configNameInput').value.trim() || document.getElementById('configSelect').value,
+    limit: num('runLimit'),
+    output_path: str('runOutputPath') || null,
+    upload_to_hf: document.getElementById('uploadToHF').checked,
+    upload_approval: document.getElementById('uploadApproval').checked,
+    upload_phrase: str('uploadPhrase') || null,
+    persist_artifacts: document.getElementById('persistArtifacts').checked,
+    artifact_repo_id: str('artifactRepoId') || 'avreymi/reasoning-pruning-job-artifacts',
+    artifact_prefix: str('artifactPrefix') || null,
+    artifact_label: str('artifactLabel') || null,
+  };
+}
+
+async function refreshCommandPreview() {
+  const body = commandRequestBody();
+  if (!body.config_name) return;
+  try {
+    const r = await fetch('/api/command-preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      _lastPreview = null;
+      document.getElementById('localCommandBox').textContent = `Preview error: ${await r.text()}`;
+      return;
+    }
+    _lastPreview = await r.json();
+    document.getElementById('localCommandBox').textContent = _lastPreview.local_command;
+    document.getElementById('canonicalCommandBox').textContent = _lastPreview.canonical_command;
+    document.getElementById('hfJobsScriptBox').textContent = _lastPreview.hf_jobs_script;
+    document.getElementById('artifactPrefix').placeholder = _lastPreview.artifact_prefix || 'job-artifacts/<label>/outputs/datasets';
+    document.getElementById('artifactSyncCommandBox').textContent = _lastPreview.artifact_sync_command;
+    renderEnvStatus(_lastPreview.env_presence);
+  } catch (e) {
+    _lastPreview = null;
+    document.getElementById('localCommandBox').textContent = `Preview error: ${e}`;
+  }
+}
+
+async function loadEnvStatus() {
+  try {
+    const r = await fetch('/api/env-status');
+    if (!r.ok) return;
+    const data = await r.json();
+    renderEnvStatus(data.secrets || {});
+  } catch {}
+}
+
+function renderEnvStatus(status) {
+  const el = document.getElementById('envStatusBadges');
+  el.innerHTML = ['HF_TOKEN', 'GEMINI_API_KEY'].map(name =>
+    `<span>${name}: ${status[name] ? 'present ✓' : 'missing'}</span>`
+  ).join('');
+}
+
+function copyVisible(elementId, btn) {
+  const text = document.getElementById(elementId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const old = btn.textContent;
+    btn.textContent = 'Copied visible text'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = old; btn.classList.remove('copied'); }, 1600);
+  });
+}
+
+function installDirtyTracking() {
+  document.querySelectorAll('#tab-run input, #tab-run select, #tab-run textarea').forEach(el => {
+    if (['runLimit', 'runOutputPath', 'uploadToHF', 'uploadApproval', 'uploadPhrase', 'persistArtifacts', 'artifactRepoId', 'artifactPrefix', 'artifactLabel', 'configSelect', 'configNameInput'].includes(el.id)) return;
+    el.addEventListener('input', () => setDirty(true));
+    el.addEventListener('change', () => setDirty(true));
+  });
+  document.getElementById('configNameInput').addEventListener('input', refreshCommandPreview);
 }
 
 // ─── Prompt accordion ─────────────────────────────────────────────────────────
@@ -1307,28 +1509,31 @@ function togglePrompt(id) {
 // ─── Run management ────────────────────────────────────────────────────────────
 
 let _activeEventSource = null;
+let _activeRunId = null;
 
 async function startRun() {
   const name = document.getElementById('configNameInput').value.trim();
   if (!name) { alert('Load or save a config first.'); return; }
+  if (_configDirty) { alert('Save config first. Unsaved edits are not used by the CLI.'); return; }
+  await refreshCommandPreview();
+  if (!_lastPreview?.local_command) { alert('No command preview available.'); return; }
 
   document.getElementById('runBtn').disabled = true;
   document.getElementById('stopBtn').style.display = '';
   setRunStatus('running');
-  appendLog(`\n▶ Starting run with config: ${name}\n`);
+  appendLog(`\n▶ Running exact visible command:\n$ ${_lastPreview.local_command}\n`);
 
   try {
     const r = await fetch('/api/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        config_name: name,
-        upload_to_hf: document.getElementById('uploadToHF').checked,
-      }),
+      body: JSON.stringify(commandRequestBody()),
     });
-    if (!r.ok) { appendLog('✗ Failed to start run\n'); finishRun('error'); return; }
-    const { run_id } = await r.json();
+    if (!r.ok) { appendLog(`✗ Failed to start run: ${await r.text()}\n`); finishRun('error'); return; }
+    const { run_id, command } = await r.json();
+    _activeRunId = run_id;
     appendLog(`  run_id: ${run_id}\n`);
+    appendLog(`  backend command: ${command}\n`);
 
     if (_activeEventSource) _activeEventSource.close();
     _activeEventSource = new EventSource(`/api/run/${run_id}/stream`);
@@ -1351,15 +1556,17 @@ async function startRun() {
 }
 
 function stopRun() {
-  if (_activeEventSource) { _activeEventSource.close(); _activeEventSource = null; }
-  finishRun('stopped');
-  appendLog('■ Run stopped by user\n');
+  if (!_activeRunId) { finishRun('stopped'); return; }
+  fetch(`/api/run/${_activeRunId}/stop`, { method: 'POST' }).catch(() => {});
+  appendLog('■ Stop subprocess requested\n');
 }
 
 function finishRun(status) {
-  document.getElementById('runBtn').disabled = false;
+  document.getElementById('runBtn').disabled = _configDirty;
   document.getElementById('stopBtn').style.display = 'none';
+  _activeRunId = null;
   setRunStatus(status);
+  loadOutputsList();
 }
 
 function setRunStatus(status) {
@@ -1380,6 +1587,36 @@ function appendLog(text) {
 
 function clearLog() {
   document.getElementById('logViewer').textContent = '';
+}
+
+async function syncArtifactsToLocal() {
+  await refreshCommandPreview();
+  if (!_lastPreview?.artifact_sync_command) { alert('No artifact sync preview available.'); return; }
+  const status = document.getElementById('artifactSyncStatus');
+  status.innerHTML = '<span>syncing…</span>';
+  const body = {
+    repo_id: _lastPreview.artifact_repo_id,
+    repo_type: 'dataset',
+    artifact_prefix: _lastPreview.artifact_prefix,
+    expected_basenames: _lastPreview.artifact_expected_basenames,
+  };
+  try {
+    const r = await fetch('/api/artifacts/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      status.innerHTML = `<span>sync failed: ${escapeHtml(await r.text())}</span>`;
+      return;
+    }
+    const data = await r.json();
+    const files = (data.files || []).map(f => `${escapeHtml(f.path)} (${formatBytes(f.size)})`).join('<br>');
+    status.innerHTML = `<span>synced ${data.files.length} files</span><span>${files}</span>`;
+    loadOutputsList();
+  } catch (e) {
+    status.innerHTML = `<span>sync failed: ${escapeHtml(String(e))}</span>`;
+  }
 }
 
 // ─── Output browser ────────────────────────────────────────────────────────────
@@ -1406,7 +1643,7 @@ async function loadOutputsList() {
       if (f.path === _selectedOutputPath) row.classList.add('active');
       row.innerHTML = `
         <span class="file-name">${escapeHtml(f.name)}</span>
-        <span class="file-meta">${f.count} records · ${formatBytes(f.size)}</span>
+        <span class="file-meta">${escapeHtml(f.kind)} · ${f.count} · ${formatBytes(f.size)}</span>
       `;
       row.onclick = () => selectOutputFile(f.path, row);
       list.appendChild(row);
@@ -1427,14 +1664,14 @@ async function loadRecordsPage() {
   try {
     const r = await fetch(`/api/output?path=${encodeURIComponent(_selectedOutputPath)}&page=${_currentPage}&page_size=${PAGE_SIZE}`);
     if (!r.ok) return;
-    const { total, page, records } = await r.json();
+    const { kind, total, page, records } = await r.json();
     _totalRecords = total;
     _currentPage = page;
-    renderRecords(records, total, page);
+    renderRecords(records, total, page, kind);
   } catch {}
 }
 
-function renderRecords(records, total, page) {
+function renderRecords(records, total, page, kind) {
   const panel = document.getElementById('recordsPanel');
   const pgn   = document.getElementById('pagination');
   const pgInfo = document.getElementById('pageInfo');
@@ -1455,31 +1692,79 @@ function renderRecords(records, total, page) {
   records.forEach(rec => {
     const card = document.createElement('div');
     card.className = 'record-card';
-    card.innerHTML = `
-      <div class="record-id">${escapeHtml(rec.id ?? '—')}</div>
-      <div class="record-meta">
-        <span>depth: ${rec.depth ?? '—'}</span>
-        <span>decision config: ${escapeHtml(rec.decision?.config ?? '—')}</span>
-      </div>
-      <div>
-        <div class="record-field-label">question</div>
-        <div class="record-field-value">${escapeHtml(rec.question ?? '')}</div>
-      </div>
-      <div>
-        <div class="record-field-label">input_x (prefix)</div>
-        <div class="record-field-value">${escapeHtml(rec.input_x ?? '')}</div>
-      </div>
-      <div>
-        <div class="record-field-label">target_y (next step)</div>
-        <div class="record-field-value target">${escapeHtml(rec.target_y ?? '')}</div>
-      </div>
-      <div>
-        <div class="record-field-label">decision.commit</div>
-        <div class="record-field-value" style="color:var(--muted)">${escapeHtml(rec.decision?.commit ?? '')}</div>
-      </div>
-    `;
+    if (kind === 'manifest' || kind === 'json') {
+      card.innerHTML = renderManifestRecord(rec);
+    } else if (kind === 'rejected') {
+      card.innerHTML = renderRejectedRecord(rec);
+    } else {
+      card.innerHTML = renderAcceptedRecord(rec);
+    }
     panel.appendChild(card);
   });
+}
+
+function renderAcceptedRecord(rec) {
+  return `
+    <div class="record-id">${escapeHtml(rec.id ?? '—')}</div>
+    <div class="record-meta">
+      <span>depth: ${rec.depth ?? '—'}</span>
+      <span>decision config: ${escapeHtml(rec.decision?.config ?? '—')}</span>
+    </div>
+    <div>
+      <div class="record-field-label">question</div>
+      <div class="record-field-value">${escapeHtml(rec.question ?? '')}</div>
+    </div>
+    <div>
+      <div class="record-field-label">input_x (prefix)</div>
+      <div class="record-field-value">${escapeHtml(rec.input_x ?? '')}</div>
+    </div>
+    <div>
+      <div class="record-field-label">target_y (next step)</div>
+      <div class="record-field-value target">${escapeHtml(rec.target_y ?? '')}</div>
+    </div>
+    <div>
+      <div class="record-field-label">decision.commit</div>
+      <div class="record-field-value" style="color:var(--muted)">${escapeHtml(rec.decision?.commit ?? '')}</div>
+    </div>
+    <details>
+      <summary class="record-field-label">raw JSON</summary>
+      <div class="record-field-value">${escapeHtml(JSON.stringify(rec, null, 2))}</div>
+    </details>
+  `;
+}
+
+function renderManifestRecord(rec) {
+  const summary = {
+    run_name: rec.run_name ?? rec.run?.run_name,
+    accepted_count: rec.accepted_count ?? rec.accepted_records,
+    rejected_count: rec.rejected_count ?? rec.rejected_records,
+    output_path: rec.output_path ?? rec.accepted_path ?? rec.output?.accepted_path,
+    generation_model: rec.generation?.model,
+    decision_model: rec.decision?.model,
+  };
+  return `
+    <div class="record-id">manifest</div>
+    <div class="record-field-label">summary</div>
+    <div class="record-field-value">${escapeHtml(JSON.stringify(summary, null, 2))}</div>
+    <div class="record-field-label">raw JSON</div>
+    <div class="record-field-value">${escapeHtml(JSON.stringify(rec, null, 2))}</div>
+  `;
+}
+
+function renderRejectedRecord(rec) {
+  return `
+    <div class="record-id">${escapeHtml(rec.id ?? rec.source_id ?? 'rejected')}</div>
+    <div class="record-meta">
+      <span>reason: ${escapeHtml(rec.reason ?? rec.error ?? '—')}</span>
+      <span>status: ${escapeHtml(rec.status ?? '—')}</span>
+    </div>
+    <div class="record-field-label">source_question</div>
+    <div class="record-field-value">${escapeHtml(rec.source_question ?? rec.question ?? rec.task_prompt ?? '')}</div>
+    <div class="record-field-label">decision</div>
+    <div class="record-field-value">${escapeHtml(JSON.stringify(rec.decision ?? rec.raw_decision ?? {}, null, 2))}</div>
+    <div class="record-field-label">raw JSON</div>
+    <div class="record-field-value">${escapeHtml(JSON.stringify(rec, null, 2))}</div>
+  `;
 }
 
 function prevPage() { if (_currentPage > 0) { _currentPage--; loadRecordsPage(); } }
@@ -1810,9 +2095,16 @@ function copyPrompt() {
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
 document.getElementById("promptTemplate").value = PRESETS[0].template;
+installDirtyTracking();
 pgInit();
 checkServer().then(ok => {
-  if (ok) loadConfigList();
+  if (ok) {
+    loadConfigList().then(() => {
+      document.getElementById('configNameInput').value = document.getElementById('configNameInput').value || 'bbh-logical-deduction-gemma4-hf-preview';
+      refreshCommandPreview();
+    });
+    loadEnvStatus();
+  }
 });
 </script>
 </body>

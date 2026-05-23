@@ -79,7 +79,7 @@ The project is split into cooperating repositories with file-based handoffs. Rep
 * Consumes a config and initializes the dataset-creation process from it.  
 * Uses `G`, a Hugging Face model repo revision stored locally in `reasoning-pruning-models`, to generate reasoning traces, and uses `D` through LiteLLM to prune them.  
 * Updates the dataset artifact store with artifacts and metadata stored locally in `reasoning-pruning-datasets`.  
-* Can run the creation process locally or remotely, for example as a Hugging Face job. `G` can also run locally or on cloud compute.
+* Creates data through Hugging Face Jobs running the normal config command, currently `uv run --extra hf --extra gemma4 python scripts/create_pruning_dataset.py --config config/bbh-logical-deduction-gemma4-hf-preview.toml`. Local runs are development aids, not the canonical Gemma4 data-creation path.
 
 `reasoning-pruning-train`
 
@@ -281,7 +281,7 @@ Each JSONL row should stay compact. Reproducibility should come from the row `id
 
 ## **Create PT dataset**
 
-Given a source dataset, initially only from Hugging Face, and a config file, we can run the full process that converts the source dataset into a PT dataset as explained above.
+Given a source dataset, initially only from Hugging Face, and a config file, we run the full process inside an HF Job that executes the normal data-gen config runner. Small preview configs are inspected first; selected outputs are copied/versioned as private Hugging Face dataset repos under `reasoning-pruning-datasets`.
 
 The config file needs to contain:
 
@@ -293,13 +293,7 @@ Partition: how to split the data into train, test, and eval.
 Amount: how many data entries to convert.  
 Any other config needed for reproducibility.
 
-Commands:
-
-`try-dataset`: Try the PT dataset creation process on a small part of a source dataset. This tool helps us decide whether the dataset is worth converting fully or partially.
-
-`convert-dataset`: Given a dataset and config, convert the full dataset or part of it and update the dataset version.
-
-We also need a small portal or viewer where we can inspect the generated results directly for one or two examples.
+The active command shape is the repo CLI/config runner, not separate tools or one-off scripts. For quick iteration, lower the config limits, run an HF Jobs preview, inspect accepted/rejected/manifest summaries, then scale the same config path.
 
 ## **reasoning-pruning-train**
 
@@ -374,4 +368,3 @@ Commands:
 `evaluate`: Given a config, run evaluation on a model and display the results.
 
 `train-and-evaluate`: Run training through `reasoning-pruning-train`, evaluate the resulting checkpoint, and if accepted, record the result as a new documented version in the relevant Hugging Face model repo.
-

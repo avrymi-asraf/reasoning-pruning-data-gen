@@ -1,66 +1,77 @@
 # Reasoning Pruning Data Gen
 
-Config-driven runner for creating pruning-transition (PT) examples. The dataset trains the local transition `question + useful reasoning prefix -> next useful step after pruning`. Runs require real LiteLLM-backed model calls.
+Config-driven runner for creating pruning-transition (PT) examples. The canonical data-creation workflow is now **Hugging Face Jobs running the normal repo CLI/config path**: Jobs provide the paid execution environment, while `scripts/create_pruning_dataset.py` remains the only data-generation entry point.
 
-## Quickstart
+## Canonical workflow: HF Jobs + normal config runner
+
+Run the Gemma4 preview config inside a Hugging Face Job. The only data creation command inside the job is:
+
+```bash
+uv run --extra hf --extra gemma4 python scripts/create_pruning_dataset.py --config config/bbh-logical-deduction-gemma4-hf-preview.toml
+```
+
+Use this HF Jobs shape:
+
+- Image: `ghcr.io/astral-sh/uv:python3.11-bookworm`
+- Flavor: `a10g-large`
+- Encrypted secrets: `HF_TOKEN` and `GEMINI_API_KEY`
+- Source: clone/download `https://github.com/avrymi-asraf/reasoning-pruning-data-gen.git`
+- Action: run the normal config command above
+- Logs: print sanitized manifest, accepted, and rejected summaries only; never print secret values
+
+Recent successful preview: HF Job `6a106a46b33ece92698c06f8` accepted `3`, rejected `0`, using generation model `avreymi/reasoning-pruning-gemma-4-E2B-it` and decision model `gemini/gemini-2.5-flash-lite`.
+
+## Quick preview loop
+
+1. Edit the TOML config, especially source limits, output path, model settings, prompts, and quality gates.
+2. Keep limits small for preview runs; `config/bbh-logical-deduction-gemma4-hf-preview.toml` is the current quick iteration config.
+3. Launch a small HF Job with the canonical command.
+4. Inspect accepted JSONL, rejected/audit JSONL, and `*.manifest.json` summaries.
+5. Adjust the config and rerun previews until the accepted/rejected examples look right.
+6. Scale only after the preview summaries are clean.
+
+Do not create one-off generation scripts or alternate data paths. Do not use `--upload-to-hf` unless the user explicitly approves a release/upload action.
+
+## Where results go
+
+The runner writes accepted JSONL, rejected/audit JSONL, and a neighboring manifest under the configured output path, usually `outputs/datasets/`. Files in `outputs/datasets/` are quick inspection products only, whether produced in a job or locally.
+
+Durable selected datasets must be copied/versioned under `../reasoning-pruning-datasets` as private Hugging Face dataset repos. A selected release should include accepted JSONL, rejected/audit JSONL, manifest/source/config metadata, manual inspection notes when useful, and a git commit/revision. Generator checkpoints should be referenced from `../reasoning-pruning-models` or a clear remote/model artifact reference.
+
+## Project layout
+
+- `config/*.toml` — source, output, model, iteration, quality, HF, and prompt settings.
+- `config/bbh-logical-deduction-gemma4-hf-preview.toml` — current Gemma4 HF Jobs preview config.
+- `scripts/create_pruning_dataset.py` — the single data-generation CLI with `--config`, `--output`, `--limit`, and explicit `--upload-to-hf` gate.
+- `scripts/llm_client.py` — LiteLLM and configured generation backend calls.
+- `scripts/pruning_flow.py` — task loading, splitting, first-span decisions, verification, iterative depth, record assembly.
+- `scripts/storage.py` — accepted/rejected JSONL plus optional Hugging Face upload.
+- `server.py` and `pruning-playground.html` — optional local UI/config/inspection aids, not the canonical interface.
+
+## Algorithm
+
+For each question, the runner generates reasoning, segments it into ordered units, asks the decision model for the first safely removable contiguous span, validates that span, and saves one compact accepted record with `id`, `question`, `input_x`, `target_y`, `depth`, and `decision`. The manifest and rejected/audit output preserve heavier provenance and quality details.
+
+Then the pruned context becomes the context for the next depth until stop/no-prune, validation failure, or `max_depth`.
+
+## Optional local development aids
+
+Local runs are for tests, config editing, and cheap smoke checks. They are not the active data-creation path for Gemma4 hardware runs.
 
 ```bash
 uv run --extra dev python -m pytest
 uv run python scripts/create_pruning_dataset.py --config config/default.toml
+uv run server.py
 ```
 
-The script loads `.env` with `python-dotenv`. Credentials must be provided through environment variables or `.env`; do not print or commit secret values. A `GEMINI_API_KEY` in the environment or `.env` is enough for the default Gemini run.
+The script loads `.env` with `python-dotenv`, but credentials should remain in environment variables, `.env`, or HF Job secrets and must never be printed or committed.
 
-## Project layout
+## Optional Hugging Face upload gate
 
-- `config/default.toml` — source, output, model, iteration, quality, HF, and prompt settings.
-- `config/bbh-logical-deduction.toml` — selected BBH logical deduction baseline source config.
-- `scripts/create_pruning_dataset.py` — config-driven runner with `--config`, `--output`, `--limit`, and explicit `--upload-to-hf` release gate.
-- `scripts/llm_client.py` — LiteLLM config and call wrapper.
-- `scripts/pruning_flow.py` — task loading, splitting, first-span decisions, verification, iterative depth, record assembly.
-- `scripts/storage.py` — accepted/rejected JSONL plus optional Hugging Face upload.
-
-## Algorithm
-
-For each question, the runner generates reasoning, segments it into ordered units, asks the decision model for the first safely removable contiguous span, validates that span, and saves one accepted record with:
-
-- `input_x`: original/current context plus useful prefix before the span
-- `target_y`: next kept unit after the skipped span
-- `removed_span`, `full_generation_before_pruning`, `pruned_context_after_decision`
-- observability metadata including units, removed ids, verification, models, source, and `format_version`
-
-Then `pruned_context_after_decision` becomes the context for the next depth until stop/no-prune, validation failure, or `max_depth`.
-
-## Config-driven local and baseline runs
+Configuring `output.hf_upload_repo` or `output.hf_upload_path` only prepares metadata. Uploads require explicit approval and the explicit gate:
 
 ```bash
-# Local seed/dev run for prompt and pipeline iteration.
-uv run python scripts/create_pruning_dataset.py --config config/default.toml
-
-# SVAMP baseline run for Hugging Face dataset work.
-uv run --extra hf python scripts/create_pruning_dataset.py --config config/svamp.toml
+uv run --extra hf python scripts/create_pruning_dataset.py --config <config.toml> --upload-to-hf
 ```
 
-Edit source, output paths, provider/model/base URL/temperature, quality gates, and prompts in TOML config files. Accepted, rejected, and manifest files are written temporarily under `outputs/datasets/`; source samples are cached under `outputs/sources/`. Final generated datasets belong in private Hugging Face dataset repos checked out under `../reasoning-pruning-datasets`, while private model/checkpoint repos belong under `../reasoning-pruning-models`. Secrets stay in environment variables or `.env`; the runner loads `.env` without printing values.
-
-## Optional Hugging Face source
-
-Set `[source] source = "hf"` plus `hf_dataset`, `hf_config`, `hf_split`, and `hf_text_field` in a config file, then run:
-
-```bash
-uv run --extra hf python scripts/create_pruning_dataset.py --config config/svamp.toml
-```
-
-The selected baseline source for optimized data work is `config/bbh-logical-deduction.toml`, which uses `lukaemon/bbh`, config `logical_deduction_five_objects`, split `test`, prompt field `input`, and answer field `target`.
-
-## Optional Hugging Face upload
-
-Local generation is the default. Configuring `output.hf_upload_repo` or `output.hf_upload_path` only prepares release metadata; it does not upload by itself. Each run writes the local JSONL and a neighboring `*.jsonl.manifest.json` file.
-
-To release to Hugging Face, pass the explicit upload gate. Upload uses Hugging Face auth from `HF_TOKEN` or local login state:
-
-```bash
-uv run --extra hf python scripts/create_pruning_dataset.py --config config/default.toml --upload-to-hf
-```
-
-Set `output.hf_upload_repo`, `output.hf_upload_path`, and `output.hf_private` explicitly in the config before uploading.
+Prefer the safe workflow first: HF Jobs preview -> inspect -> select -> copy/version under `../reasoning-pruning-datasets` -> commit. Use direct upload only when a release has been approved.

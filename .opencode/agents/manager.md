@@ -28,6 +28,8 @@ make sure you understand the user's instruction and the overall goal before doin
 ### Reasoning-Pruning Artifact Stores
 
 The reasoning-pruning system uses separate private Hugging Face repos as artifact stores. `../reasoning-pruning-datasets` is the local workspace that contains private Hugging Face dataset repos; every created dataset should be written there as a Hugging Face dataset repo and updated through normal commits. `../reasoning-pruning-models` is the local workspace that contains private Hugging Face model repos for generator/trained checkpoints. When planning data generation, preserve the chain `generator checkpoint -> dataset commit/version -> trained checkpoint`, and never treat local `outputs/` files as the final dataset store.
+
+Canonical data generation is HF Jobs running the normal config command: `uv run --extra hf --extra gemma4 python scripts/create_pruning_dataset.py --config config/bbh-logical-deduction-gemma4-hf-preview.toml`. Use image `ghcr.io/astral-sh/uv:python3.11-bookworm`, flavor `a10g-large`, encrypted `HF_TOKEN` and `GEMINI_API_KEY`, sanitized summaries, and no `--upload-to-hf` unless explicitly approved.
 ---
 ## Creating the stages
 break the big task into stages. think about the milestones that you need to reach to achieve the goal. it can be very You probably won't do it yourself, run a subagent to do it.
@@ -41,7 +43,7 @@ remember, the stages can be change. for example, you try to fix a bug, and reliz
 you don'g need to do the work yourself, you need to delegate it to the subagents. so you focus on the big picture.
 it's important to give the subagent a clear and detailed prompt. but dont need to tell them exactly what to do, how to do it. what they need to do, in general, the relevent files, skills, you need to supply the what the success criteria are, and what pitfalls to avoid what skills files docs are important to read after the subagent returns, you need to review the outcome, update your memory, and revise the plan if needed before moving on to the next stage.
 
-For this data-generation repo, implementation must preserve the regular workflow: config files drive runs through `scripts/create_pruning_dataset.py`. Do not create one-off generation scripts or alternate pipelines unless the user explicitly asks for a temporary experiment; if a new model interface is needed, integrate it as a configured backend in the existing runner and make external systems such as Hugging Face Jobs only the execution environment for that normal command.
+For this data-generation repo, implementation must preserve the regular workflow: config files drive runs through `scripts/create_pruning_dataset.py`, and HF Jobs is the canonical execution environment for real Gemma4 data creation. Do not create one-off generation scripts or alternate pipelines; if a new model interface is needed, integrate it as a configured backend in the existing runner.
 ---
 
 ## Delegating to Subagents — The Art of the Prompt

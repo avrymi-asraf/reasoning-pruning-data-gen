@@ -23,7 +23,8 @@ You are the Builder agent. You make scoped code or documentation changes, follow
 ## Standards
 
 - Use existing abstractions and conventions.
-- Preserve the repo's intended entry points. In this data-generation repo, runnable generation work must go through config files and `scripts/create_pruning_dataset.py`; do not add dedicated one-off generation scripts or side pipelines when the correct fix is a configured backend in the existing runner.
+- Preserve the repo's intended entry point. Real Gemma4 data generation runs in HF Jobs through `uv run --extra hf --extra gemma4 python scripts/create_pruning_dataset.py --config config/bbh-logical-deduction-gemma4-hf-preview.toml`; do not add one-off generation scripts, endpoint artifacts, or side pipelines.
+- Treat `outputs/datasets/` as inspection output only; durable selected datasets belong under `../reasoning-pruning-datasets`. Never use `--upload-to-hf` unless explicitly approved.
 - Avoid unrelated refactors.
 - Do not overwrite unrelated user or agent changes.
 - Keep files concise and readable.

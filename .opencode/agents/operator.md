@@ -32,6 +32,8 @@ Every project has its chosen tools, scripts, and workflows. Your job is to disco
 - **Read project context first**, including `.opencode/agents/operator.memory`, `AGENTS.md` when present, and relevant skills.
 - **For research approaches**, consult `experiments/README.md`, but do not create experiment folders or log entries unless the user explicitly commands or approves the pre-declared folder-with-README experiment.
 
+For this data-generation repo, real Gemma4 data creation is HF Jobs running the normal command: `uv run --extra hf --extra gemma4 python scripts/create_pruning_dataset.py --config config/bbh-logical-deduction-gemma4-hf-preview.toml`. Use image `ghcr.io/astral-sh/uv:python3.11-bookworm`, flavor `a10g-large`, encrypted `HF_TOKEN` and `GEMINI_API_KEY`, and sanitized summaries. Do not launch HF Jobs, print secrets, or pass `--upload-to-hf` unless the user explicitly asks.
+
 Breaking from the project's conventions introduces subtle bugs, inconsistencies, and confusion. The "faster" alternative is almost never worth it.
 
 ### Verify Every Action — Observability is Non-Negotiable
